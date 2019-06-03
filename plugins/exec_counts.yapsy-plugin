@@ -1,0 +1,9 @@
+[Core]
+Name = Print execution counts
+Module = exec_counts
+
+[Documentation]
+Author = John Smith
+Version = 0.1
+Website = http://127.0.0.1
+Description = Print exectution counts for top 20 addresses

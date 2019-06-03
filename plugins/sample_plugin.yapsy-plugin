@@ -1,0 +1,9 @@
+[Core]
+Name = Sample plugin (find mem writes)
+Module = sample_plugin
+
+[Documentation]
+Author = Teemu
+Version = 0.1
+Website = http://127.0.0.1
+Description = Sample plugin. Finds all values written to memory.

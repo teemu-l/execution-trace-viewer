@@ -1,0 +1,9 @@
+[Core]
+Name = List bookmarks
+Module = list_bookmarks
+
+[Documentation]
+Author = Teemu
+Version = 0.1
+Website = http://127.0.0.1
+Description = Lists all bookmarks

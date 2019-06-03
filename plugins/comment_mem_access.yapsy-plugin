@@ -1,0 +1,9 @@
+[Core]
+Name = Comment mem accesses
+Module = comment_mem_access
+
+[Documentation]
+Author = Teemu
+Version = 0.1
+Website = http://127.0.0.1
+Description = Comments all memory reads and writes ([addr] -> data)

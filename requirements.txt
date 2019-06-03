@@ -1,0 +1,4 @@
+capstone==3.0.5.post1
+PyQt5==5.11.3
+QDarkStyle==2.6.8
+Yapsy==1.12.0
