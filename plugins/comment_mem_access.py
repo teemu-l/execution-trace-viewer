@@ -19,11 +19,13 @@ class PluginCommentMemAccesses(IPlugin):
                 comment = ""
                 for mem in t['mem']:
                     addr = hex(mem['addr'])
-                    value = hex(mem['value'])
+                    value = mem['value']
                     if mem['access'] == "READ":
-                        comment += f"[{ addr }] -> { value } "
+                        comment += f"[{ addr }] -> { hex(value) } "
                     elif mem['access'] == "WRITE":
-                        comment += f"[{ addr }] <- { value } "
+                        comment += f"[{ addr }] <- { hex(value) } "
+                    if 0x20 <= value <= 0x7e:
+                        comment += f"'{ chr(value) }' "
                 trace[i]['comment'] = comment
 
         main_window.update_trace_table()
