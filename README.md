@@ -41,9 +41,9 @@ Traces folder contains one sample trace. It is ~11k lines of obfuscated code (by
 
 ## Plugins
 
-Execution Trace Viewer can be extended by Python3 plugins. Plugins are launched from plugins menu or by right-clicking trace table. Plugin receives main window, trace data and selected trace indexes as arguments.
+Execution Trace Viewer can be extended by Python3 plugins. Plugins are launched from plugins menu or from right-click menu on trace table.
 
-Check the plugins folder for example plugins.
+Check the example plugins and core/api.py for more info.
 
 ## Filters
 
@@ -107,7 +107,7 @@ USE_DARK_THEME = False
 
 ## To-Do
 
-- code needs refactoring
+- documentation
 - highlight modified regs
 - add support for more trace formats & architectures
 - fix x64dbg trace problem: if memory content doesn't change on write operation, the access is shown as 'READ' (bad design of the file format?)
