@@ -88,7 +88,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.find_next_button.clicked.connect(lambda: self.on_find_clicked(1))
         self.find_prev_button.clicked.connect(lambda: self.on_find_clicked(-1))
 
-        self.regs_list.currentItemChanged.connect(self.on_reg_list_selection_changed)
         self.mem_list.currentItemChanged.connect(self.on_mem_list_selection_changed)
 
         # accept file drops
@@ -106,6 +105,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.trace_table.customContextMenuRequested.connect(
             self.trace_table_context_menu_event
         )
+
+        # Init register table
+        self.reg_table.setColumnCount(len(prefs.REG_LABELS))
+        self.reg_table.setHorizontalHeaderLabels(prefs.REG_LABELS)
+        self.reg_table.horizontalHeader().setStretchLastSection(True)
 
         # Init bookmark table
         self.bookmark_table.setColumnCount(len(prefs.BOOKMARK_LABELS))
@@ -495,7 +499,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_regs_and_mem(self):
         """Updates register and memory tables"""
-        self.regs_list.clear()
+
+        self.reg_table.setRowCount(0)
         self.mem_list.clear()
 
         if self.trace_data is None:
@@ -507,37 +512,40 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         row_id = int(row_ids[0])
         trace_row = self.trace_data.trace[row_id]
-
+        flags = None
         if "regs" in trace_row:
             reg_values = trace_row["regs"]
+            i = 0
             for reg, reg_index in self.trace_data.regs.items():
                 if (self.trace_data.arch in ('x86', 'x64') and prefs.REG_FILTER_ENABLED
                         and reg not in prefs.REG_FILTER):
                     continue  # don't show this register
-                self.regs_list.addItem("%s: %s" % (reg, hex(reg_values[reg_index])))
 
-            if "eflags" in self.trace_data.regs:
-                eflags_index = self.trace_data.regs['eflags']
-                eflags = reg_values[eflags_index]
-                flags = {
-                    "carry": eflags & 1,
-                    "parity": (eflags >> 2) & 1,
-                    # 'aux_carry': (eflags >> 4) & 1,
-                    "zero": (eflags >> 6) & 1,
-                    "sign": (eflags >> 7) & 1,
-                    # 'direction': (eflags >> 10) & 1,
-                    # 'overflow':  (eflags >> 11) & 1
-                }
-                eflags_bits = bin(eflags)
-                self.regs_list.addItem("")
-                self.regs_list.addItem("Eflags: %s = %s" % (hex(eflags), eflags_bits))
+                self.reg_table.setRowCount(i+1)
+                self.reg_table.setItem(i, 0, QtWidgets.QTableWidgetItem(reg))
+                reg_value = reg_values[reg_index]
+                self.reg_table.setItem(i, 1, QtWidgets.QTableWidgetItem(hex(reg_value)))
+                self.reg_table.setItem(i, 2, QtWidgets.QTableWidgetItem(str(reg_value)))
 
-                self.regs_list.addItem(
-                    "C:%s P:%s Z:%s S:%s"
-                    % (flags["carry"], flags["parity"], flags["zero"], flags["sign"])
-                )
-        else:
-            print_debug("Error. Could not get regs from row " + str(row_id))
+                if reg == "eflags":
+                    eflags = reg_value
+                    flags = {
+                        "c": eflags & 1,           # carry
+                        "p": (eflags >> 2) & 1,    # parity
+                        # 'a': (eflags >> 4) & 1,  # aux_carry
+                        "z": (eflags >> 6) & 1,    # zero
+                        "s": (eflags >> 7) & 1,    # sign
+                        # 'd': (eflags >> 10) & 1, # direction
+                        # 'o':  (eflags >> 11) & 1 # overflow
+                    }
+                i += 1
+
+            if flags:
+                flags_text = f"C:{flags['c']} P:{flags['p']} Z:{flags['z']} S:{flags['s']}"
+                row_count = self.reg_table.rowCount()
+                self.reg_table.setRowCount(row_count+1)
+                self.reg_table.setItem(row_count, 0, QtWidgets.QTableWidgetItem('flags'))
+                self.reg_table.setItem(row_count, 1, QtWidgets.QTableWidgetItem(flags_text))
 
         if "mem" in trace_row:
             mems = trace_row["mem"]
@@ -653,7 +661,7 @@ class MainWindow(QtWidgets.QMainWindow):
         selected = self.bookmark_table.selectedItems()
         if not selected:
             print_debug("No bookmarks selected.")
-            return
+            return []
         selected_rows = sorted(set({sel.row() for sel in selected}))
         all_bookmarks = self.trace_data.get_bookmarks()
         return [all_bookmarks[i] for i in selected_rows]
@@ -680,11 +688,6 @@ class MainWindow(QtWidgets.QMainWindow):
         """Callback function for trace table selection change"""
         self.update_regs_and_mem()
         self.update_status_bar()
-
-    def on_reg_list_selection_changed(self, item):
-        """Prints the selected item on regList selection change"""
-        if item is not None and prefs.PRINT_REG_ON_CLICK:
-            self.print(item.text())
 
     def on_mem_list_selection_changed(self, item):
         """Prints the selected item on memList selection change"""

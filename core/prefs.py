@@ -31,9 +31,9 @@ FIND_FIELDS = ["Disasm", "Regs", "Memory", "Comment", "Any"]
 # columns for tables
 TRACE_LABELS = ["#", "addr", "opcodes", "disasm", "comment"]
 BOOKMARK_LABELS = ["start row", "end row", "addr", "disasm", "comment"]
+REG_LABELS = ["reg", "hex", "dec"]
 
-# print register value & mem access when clicked?
-PRINT_REG_ON_CLICK = True
+# print mem access when clicked?
 PRINT_MEM_ON_CLICK = True
 
 # registers for x64dbg traces
