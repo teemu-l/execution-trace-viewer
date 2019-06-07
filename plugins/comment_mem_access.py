@@ -4,15 +4,16 @@ from yapsy.IPlugin import IPlugin
 
 class PluginCommentMemAccesses(IPlugin):
 
-    def execute(self, main_window, trace_data, selected_row_ids):
+    def execute(self, api): #main_window, trace_data, selected_row_ids):
 
-        want_to_continue = main_window.ask_user(
+        want_to_continue = api.ask_user(
             "Warning", "This plugin may replace some of your comments, continue?"
         )
         if not want_to_continue:
             return
 
-        trace = main_window.get_visible_trace()
+        trace_data = api.get_trace_data()
+        trace = api.get_visible_trace()
 
         for i, t in enumerate(trace):
             if 'mem' in t and t['mem']:
@@ -26,6 +27,12 @@ class PluginCommentMemAccesses(IPlugin):
                         comment += f"[{ addr }] <- { hex(value) } "
                     if 0x20 <= value <= 0x7e:
                         comment += f"'{ chr(value) }' "
+
+                # Add comment to full trace
+                row = t["id"]
+                trace_data.trace[row]['comment'] = comment
+
+                # Add comment to visible trace too because it could be filtered_trace
                 trace[i]['comment'] = comment
 
-        main_window.update_trace_table()
+        api.update_trace_table()

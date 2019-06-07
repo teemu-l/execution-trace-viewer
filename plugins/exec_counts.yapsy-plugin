@@ -3,7 +3,7 @@ Name = Print execution counts
 Module = exec_counts
 
 [Documentation]
-Author = John Smith
+Author = Teemu
 Version = 0.1
-Website = http://127.0.0.1
-Description = Print exectution counts for top 20 addresses
+Website = https://github.com/teemu-l/execution-trace-viewer
+Description = Print execution counts for top 30 most executed addresses

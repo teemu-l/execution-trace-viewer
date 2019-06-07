@@ -3,20 +3,20 @@ from operator import itemgetter
 
 class PluginListBookmarks(IPlugin):
 
-    def execute(self, main_window, trace_data, selected_row_ids):
+    def execute(self, api):
 
-        main_window.print('----------------------------------')
+        api.print('----------------------------------')
 
-        bookmarks = trace_data.get_bookmarks()
+        bookmarks = api.get_bookmarks()
         if not bookmarks:
-            main_window.print('No bookmarks found.')
+            api.print('No bookmarks found.')
             return
 
         for b in bookmarks:
             row = '{:<8}'.format(b.startrow)
-            main_window.print(row + '{:<20}'.format(b.disasm) + '; %s' % b.comment)
+            api.print(row + '{:<20}'.format(b.disasm) + '; %s' % b.comment)
 
-        main_window.print('')
+        api.print('')
 
         addresses = {}
         for b in bookmarks:
@@ -26,20 +26,20 @@ class PluginListBookmarks(IPlugin):
                 addresses[b.addr] = 1
         addresses = sorted(addresses.items(), key=itemgetter(1), reverse=True)
 
-        main_window.print('Duplicate bookmarks:')
-        main_window.print('Address  | count |  start row')
+        api.print('Duplicate bookmarks:')
+        api.print('Address  | count |  start row')
         for address, count in addresses:  # [:15]
             b_rows = []
             for b in bookmarks:
                 if address == b.addr:
                     b_rows.append(b.startrow)
             b_rows_str = ' '.join(map(str, b_rows))
-            main_window.print('%s |  %d    | %s' % (address, count, b_rows_str))
+            api.print('%s |  %d    | %s' % (address, count, b_rows_str))
 
-        main_window.print('')
+        api.print('')
 
-        main_window.print('%d bookmarks total.' % len(bookmarks))
-        main_window.print('%d unique bookmarks.' % len(addresses))
+        api.print('%d bookmarks total.' % len(bookmarks))
+        api.print('%d unique bookmarks.' % len(addresses))
 
         lengths = []
         for b in bookmarks:
@@ -47,5 +47,5 @@ class PluginListBookmarks(IPlugin):
         avg_len = sum(lengths) / len(bookmarks)
         shortest = min(lengths)
         longtest = max(lengths)
-        main_window.print('Average length of bookmarks: %d' % avg_len)
-        main_window.print('Longest: %d  Shortest: %d' % (longtest, shortest))
+        api.print('Average length of bookmarks: %d' % avg_len)
+        api.print('Longest: %d  Shortest: %d' % (longtest, shortest))
