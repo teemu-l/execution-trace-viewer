@@ -1,0 +1,9 @@
+[Core]
+Name = Filter by mem access address
+Module = filter_by_mem_addr
+
+[Documentation]
+Author = Teemu
+Version = 0.1
+Website = https://github.com/teemu-l/execution-trace-viewer
+Description = Filter by mem access address
