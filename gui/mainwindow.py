@@ -12,6 +12,7 @@ from core.filter_and_find import find
 from core.filter_and_find import filter_trace
 from core.filter_and_find import TraceField
 from core.syntax import AsmHighlighter
+from core.api import Api
 from core import prefs
 
 
@@ -25,6 +26,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         """Inits MainWindow, UI and plugins"""
         super(MainWindow, self).__init__()
+        self.api = Api(self)
         self.trace_data = TraceData()
         self.filtered_trace = None
         self.init_plugins()
@@ -264,9 +266,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def execute_plugin(self, plugin):
         """Executes a plugin and updates tables"""
         print_debug("Executing a plugin: %s" % plugin.name)
-        selected_row_ids = self.get_selected_row_ids(self.trace_table)
         try:
-            plugin.plugin_object.execute(self, self.trace_data, selected_row_ids)
+            plugin.plugin_object.execute(self.api)
         except Exception:
             print_debug("Error in plugin. Check log for details.")
             self.print("Error in plugin:")
@@ -281,6 +282,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if key == QtCore.Qt.Key_Return:
             self.on_filter_clicked()
         QtWidgets.QComboBox.keyPressEvent(self.filter_edit, event)
+
+    def show_filtered_trace(self):
+        """Shows filtered_trace on trace_table"""
+        if not self.filter_check_box.isChecked():
+            self.filter_check_box.setChecked(True) # this will also update trace_table
+        else:
+            self.update_trace_table()
 
     def on_filter_check_box_state_changed(self):
         """Callback function for state change of filter checkbox"""
@@ -640,6 +648,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.trace_data.delete_bookmark(row)
         self.update_bookmark_table()
 
+    def get_selected_bookmarks(self):
+        """Returns selected bookmarks"""
+        selected = self.bookmark_table.selectedItems()
+        if not selected:
+            print_debug("No bookmarks selected.")
+            return
+        selected_rows = sorted(set({sel.row() for sel in selected}))
+        all_bookmarks = self.trace_data.get_bookmarks()
+        return [all_bookmarks[i] for i in selected_rows]
+
     def update_bookmark_table(self):
         """Updates bookmarks table from trace_data"""
         if self.trace_data is None:
@@ -681,7 +699,6 @@ class MainWindow(QtWidgets.QMainWindow):
         """Scrolls a table to the specified row"""
         table.scrollToItem(table.item(row, 3), QtWidgets.QAbstractItemView.PositionAtCenter)
 
-
     def select_row(self, table, row):
         """Selects a row in a table"""
         table.clearSelection()
@@ -694,7 +711,14 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def ask_user(self, title, question):
-        """Shows a messagebox with yes/no question"""
+        """Shows a messagebox with yes/no question
+
+        Args:
+            title (str): MessageBox title
+            question (str): MessageBox qustion label
+        Returns:
+            bool: True if user clicked yes, False otherwise
+        """
         answer = QtWidgets.QMessageBox.question(
             self,
             title,
@@ -704,6 +728,25 @@ class MainWindow(QtWidgets.QMainWindow):
             )
         )
         return bool(answer == QtWidgets.QMessageBox.Yes)
+
+    def get_string_from_user(self, title, label):
+        """Gets a string from user
+
+        Args:
+            title (str): Input dialog title
+            label (str): Input dialog label
+        Returns:
+            string: String given by user, None if user pressed cancel
+        """
+        answer, ok_pressed = QtWidgets.QInputDialog.getText(self,
+            title,
+            label, 
+            QtWidgets.QLineEdit.Normal,
+            ""
+        )
+        if ok_pressed:
+            return answer
+        return None
 
     def show_messagebox(self, text):
         """Shows a messagebox"""
