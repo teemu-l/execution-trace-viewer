@@ -1,0 +1,9 @@
+[Core]
+Name = Print selected bookmarks
+Module = print_selected_bookmarks
+
+[Documentation]
+Author = Teemu
+Version = 0.1
+Website = https://github.com/teemu-l/execution-trace-viewer
+Description = Prints all selected bookmarks to log
