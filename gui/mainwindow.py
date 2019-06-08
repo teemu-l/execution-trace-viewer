@@ -88,8 +88,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.find_next_button.clicked.connect(lambda: self.on_find_clicked(1))
         self.find_prev_button.clicked.connect(lambda: self.on_find_clicked(-1))
 
-        self.mem_list.currentItemChanged.connect(self.on_mem_list_selection_changed)
-
         # accept file drops
         self.setAcceptDrops(True)
 
@@ -110,6 +108,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reg_table.setColumnCount(len(prefs.REG_LABELS))
         self.reg_table.setHorizontalHeaderLabels(prefs.REG_LABELS)
         self.reg_table.horizontalHeader().setStretchLastSection(True)
+
+        # Init memory table
+        self.mem_table.setColumnCount(len(prefs.MEM_LABELS))
+        self.mem_table.setHorizontalHeaderLabels(prefs.MEM_LABELS)
+        self.mem_table.horizontalHeader().setStretchLastSection(True)
 
         # Init bookmark table
         self.bookmark_table.setColumnCount(len(prefs.BOOKMARK_LABELS))
@@ -500,8 +503,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def update_regs_and_mem(self):
         """Updates register and memory tables"""
 
+        # clear tables
         self.reg_table.setRowCount(0)
-        self.mem_list.clear()
+        self.mem_table.setRowCount(0)
 
         if self.trace_data is None:
             return
@@ -520,10 +524,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 if (self.trace_data.arch in ('x86', 'x64') and prefs.REG_FILTER_ENABLED
                         and reg not in prefs.REG_FILTER):
                     continue  # don't show this register
-
-                self.reg_table.setRowCount(i+1)
-                self.reg_table.setItem(i, 0, QtWidgets.QTableWidgetItem(reg))
                 reg_value = reg_values[reg_index]
+
+                self.reg_table.setRowCount(i + 1)
+                self.reg_table.setItem(i, 0, QtWidgets.QTableWidgetItem(reg))
                 self.reg_table.setItem(i, 1, QtWidgets.QTableWidgetItem(hex(reg_value)))
                 self.reg_table.setItem(i, 2, QtWidgets.QTableWidgetItem(str(reg_value)))
 
@@ -543,19 +547,18 @@ class MainWindow(QtWidgets.QMainWindow):
             if flags:
                 flags_text = f"C:{flags['c']} P:{flags['p']} Z:{flags['z']} S:{flags['s']}"
                 row_count = self.reg_table.rowCount()
-                self.reg_table.setRowCount(row_count+1)
+                self.reg_table.setRowCount(row_count + 1)
                 self.reg_table.setItem(row_count, 0, QtWidgets.QTableWidgetItem('flags'))
                 self.reg_table.setItem(row_count, 1, QtWidgets.QTableWidgetItem(flags_text))
 
         if "mem" in trace_row:
             mems = trace_row["mem"]
-            for mem in mems:
-                mem_str = ""
-                for key, value in mem.items():
-                    if isinstance(value, int):
-                        value = hex(value)
-                    mem_str += str(key) + ": " + str(value) + " "
-                self.mem_list.addItem(mem_str)
+            self.mem_table.setRowCount(len(mems))
+            for i, mem in enumerate(mems):
+                self.mem_table.setItem(i, 0, QtWidgets.QTableWidgetItem(mem["access"]))
+                self.mem_table.setItem(i, 1, QtWidgets.QTableWidgetItem(hex(mem["addr"])))
+                self.mem_table.setItem(i, 2, QtWidgets.QTableWidgetItem(hex(mem["value"])))
+            self.update_column_widths(self.mem_table)
 
     def update_status_bar(self):
         """Updates status bar"""
@@ -688,11 +691,6 @@ class MainWindow(QtWidgets.QMainWindow):
         """Callback function for trace table selection change"""
         self.update_regs_and_mem()
         self.update_status_bar()
-
-    def on_mem_list_selection_changed(self, item):
-        """Prints the selected item on memList selection change"""
-        if item is not None and prefs.PRINT_MEM_ON_CLICK:
-            self.print(item.text())
 
     def print(self, text):
         """Prints text to TextEdit on log tab"""

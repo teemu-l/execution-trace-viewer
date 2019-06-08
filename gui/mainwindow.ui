@@ -340,7 +340,7 @@
                <enum>QAbstractItemView::ScrollPerPixel</enum>
               </property>
               <property name="showGrid">
-               <bool>false</bool>
+               <bool>true</bool>
               </property>
               <property name="gridStyle">
                <enum>Qt::DotLine</enum>
@@ -352,10 +352,13 @@
                <bool>false</bool>
               </attribute>
               <attribute name="verticalHeaderDefaultSectionSize">
-               <number>24</number>
+               <number>22</number>
+              </attribute>
+              <attribute name="verticalHeaderMinimumSectionSize">
+               <number>22</number>
               </attribute>
              </widget>
-             <widget class="QListWidget" name="mem_list">
+             <widget class="QTableWidget" name="mem_table">
               <property name="minimumSize">
                <size>
                 <width>240</width>
@@ -368,6 +371,21 @@
                 <pointsize>8</pointsize>
                </font>
               </property>
+              <property name="gridStyle">
+               <enum>Qt::DashLine</enum>
+              </property>
+              <attribute name="horizontalHeaderVisible">
+               <bool>true</bool>
+              </attribute>
+              <attribute name="verticalHeaderVisible">
+               <bool>false</bool>
+              </attribute>
+              <attribute name="verticalHeaderDefaultSectionSize">
+               <number>22</number>
+              </attribute>
+              <attribute name="verticalHeaderMinimumSectionSize">
+               <number>22</number>
+              </attribute>
              </widget>
             </widget>
            </widget>

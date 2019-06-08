@@ -29,12 +29,10 @@ SAMPLE_FILTERS = [
 FIND_FIELDS = ["Disasm", "Regs", "Memory", "Comment", "Any"]
 
 # columns for tables
-TRACE_LABELS = ["#", "addr", "opcodes", "disasm", "comment"]
+TRACE_LABELS = ["#", "address", "opcodes", "disasm", "comment"]
 BOOKMARK_LABELS = ["start row", "end row", "addr", "disasm", "comment"]
 REG_LABELS = ["reg", "hex", "dec"]
-
-# print mem access when clicked?
-PRINT_MEM_ON_CLICK = True
+MEM_LABELS = ["access", "address", "value"]
 
 # registers for x64dbg traces
 # if you want to see more regs, add them here (in correct order)
