@@ -1,8 +1,9 @@
 from yapsy.IPlugin import IPlugin
+from core.api import Api
 
 class PluginPrintRows(IPlugin):
 
-    def execute(self, api):
+    def execute(self, api: Api):
 
         trace_data = api.get_trace_data()
         trace = api.get_selected_trace()
@@ -11,7 +12,7 @@ class PluginPrintRows(IPlugin):
             print('PluginPrintRows error: Nothing selected.')
             return
 
-        api.print('----------------------------------')
+        api.print('')
 
         row_id_digits = len(str(trace[-1]['id']))
         for t in trace:

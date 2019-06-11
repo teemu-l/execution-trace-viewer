@@ -1,9 +1,10 @@
 from yapsy.IPlugin import IPlugin
 from operator import itemgetter
+from core.api import Api
 
 class PluginListBookmarks(IPlugin):
 
-    def execute(self, api):
+    def execute(self, api: Api):
 
         api.print('----------------------------------')
 
@@ -47,5 +48,5 @@ class PluginListBookmarks(IPlugin):
         avg_len = sum(lengths) / len(bookmarks)
         shortest = min(lengths)
         longtest = max(lengths)
-        api.print('Average length of bookmarks: %d' % avg_len)
+        api.print('Average length of bookmark: %d' % avg_len)
         api.print('Longest: %d  Shortest: %d' % (longtest, shortest))

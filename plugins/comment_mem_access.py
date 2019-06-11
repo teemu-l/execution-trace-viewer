@@ -1,10 +1,11 @@
-"""This plugin finds every memory access and comments the row with mem address and value"""
+"""This plugin finds every memory access and comments the row with address and value"""
 
 from yapsy.IPlugin import IPlugin
+from core.api import Api
 
 class PluginCommentMemAccesses(IPlugin):
 
-    def execute(self, api): #main_window, trace_data, selected_row_ids):
+    def execute(self, api: Api):
 
         want_to_continue = api.ask_user(
             "Warning", "This plugin may replace some of your comments, continue?"

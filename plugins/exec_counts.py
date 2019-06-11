@@ -1,15 +1,17 @@
 """This plugin prints top 30 most executed addresses"""
 from yapsy.IPlugin import IPlugin
 from operator import itemgetter
+from core.api import Api
 
 class PluginPrintExecCounts(IPlugin):
 
-    def execute(self, api):
+    def execute(self, api: Api):
 
-        api.print('----------------------------------')
         trace = api.get_visible_trace()
         if not trace:
             return
+
+        api.print('')
 
         trace_data = api.get_trace_data()
         ip_name = trace_data.get_instruction_pointer_name()
