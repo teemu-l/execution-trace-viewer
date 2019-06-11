@@ -741,18 +741,19 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         answer, ok_pressed = QtWidgets.QInputDialog.getText(self,
             title,
-            label, 
+            label,
             QtWidgets.QLineEdit.Normal,
             ""
         )
         if ok_pressed:
             return answer
-        return None
+        return ""
 
-    def show_messagebox(self, text):
+    def show_messagebox(self, title, msg):
         """Shows a messagebox"""
         alert = QtWidgets.QMessageBox()
-        alert.setText(text)
+        alert.setWindowTitle(title)
+        alert.setText(msg)
         alert.exec_()
 
 
