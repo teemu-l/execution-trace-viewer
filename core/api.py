@@ -3,7 +3,7 @@ class Api:
     """Api class for plugins
 
     Attributes:
-        main_window (QMainWindow): main_window object
+        main_window (MainWindow): MainWindow object
     """
     def __init__(self, main_window):
         """Inits Api."""
@@ -14,7 +14,7 @@ class Api:
 
         Args:
             title (str): MessageBox title
-            question (str): MessageBox qustion label
+            question (str): MessageBox question label
         Returns:
             bool: True if user clicked yes, False otherwise
         """
@@ -24,7 +24,7 @@ class Api:
         """Returns all bookmarks
 
         Returns:
-            list: bookmarks
+            list: List of Bookmark objects
         """
         return self.main_window.trace_data.get_bookmarks()
 
@@ -54,7 +54,7 @@ class Api:
             title (str): Input dialog title
             label (str): Input dialog label
         Returns:
-            string: String given by user, None if user clicked No
+            string: String given by user
         """
         return self.main_window.get_string_from_user(title, label)
 
@@ -66,20 +66,19 @@ class Api:
             title (str): Input dialog title
             label (str): Input dialog label
         Returns:
-            list: list of integers, None if wrong or no values given.
+            list: List of integers
         """
         values_str = self.main_window.get_string_from_user(
             title, label
         )
+        values = []
         if values_str:
-            values = []
-            for value in values_str.split(','):
-                if value.startswith('0x'):
+            for value in values_str.split(","):
+                if "0x" in value:
                     values.append(int(value, 16))
                 else:
                     values.append(int(value))
-            return values
-        return None
+        return values
 
     def get_selected_bookmarks(self):
         """Returns list of selected bookmarks"""
@@ -98,20 +97,33 @@ class Api:
         return self.main_window.get_visible_trace()
 
     def print(self, text):
-        """Prints text to log"""
+        """Prints text to log
+
+        Args:
+            text (str): Text to print in log
+        """
         self.main_window.print(str(text))
 
     def set_filtered_trace(self, trace):
-        """Sets filtered_trace"""
+        """Sets filtered_trace
+
+        Args:
+            trace (list): List of trace rows
+        """
         self.main_window.filtered_trace = trace
 
     def show_filtered_trace(self):
         """Shows filtered trace on trace_table"""
         self.main_window.show_filtered_trace()
 
-    def show_messagebox(self, text):
-        """Shows a messagebox"""
-        self.main_window.show_messagebox(text)
+    def show_messagebox(self, title, msg):
+        """Shows a messagebox
+
+        Args:
+            title (str): Title of messagebox
+            msg (str): Message to show
+        """
+        self.main_window.show_messagebox(title, msg)
 
     def update_trace_table(self):
         """Updates trace_table"""
