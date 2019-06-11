@@ -505,8 +505,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def update_regs_and_mem(self):
         """Updates register and memory tables"""
 
-        # clear tables
-        self.reg_table.setRowCount(0)
+        # clear mem_table
         self.mem_table.setRowCount(0)
 
         if self.trace_data is None:
@@ -518,39 +517,59 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         row_id = int(row_ids[0])
         trace_row = self.trace_data.trace[row_id]
-        flags = None
+
         if "regs" in trace_row:
+            registers = []
+            flags = None
             reg_values = trace_row["regs"]
-            i = 0
-            for reg, reg_index in self.trace_data.regs.items():
+            
+            for reg_name, reg_index in self.trace_data.regs.items():
                 if (self.trace_data.arch in ('x86', 'x64') and prefs.REG_FILTER_ENABLED
-                        and reg not in prefs.REG_FILTER):
+                        and reg_name not in prefs.REG_FILTER):
                     continue  # don't show this register
+
                 reg_value = reg_values[reg_index]
 
-                self.reg_table.setRowCount(i + 1)
-                self.reg_table.setItem(i, 0, QtWidgets.QTableWidgetItem(reg))
-                self.reg_table.setItem(i, 1, QtWidgets.QTableWidgetItem(hex(reg_value)))
-                self.reg_table.setItem(i, 2, QtWidgets.QTableWidgetItem(str(reg_value)))
+                reg = {}
+                reg["name"] = reg_name
+                reg["value"] = reg_value
+                registers.append(reg)
 
-                if reg == "eflags":
+                if reg_name == "eflags":
                     eflags = reg_value
                     flags = {
                         "c": eflags & 1,           # carry
                         "p": (eflags >> 2) & 1,    # parity
-                        # 'a': (eflags >> 4) & 1,  # aux_carry
+                        # "a": (eflags >> 4) & 1,  # aux_carry
                         "z": (eflags >> 6) & 1,    # zero
                         "s": (eflags >> 7) & 1,    # sign
-                        # 'd': (eflags >> 10) & 1, # direction
-                        # 'o':  (eflags >> 11) & 1 # overflow
+                        # "d": (eflags >> 10) & 1, # direction
+                        # "o":  (eflags >> 11) & 1 # overflow
                     }
-                i += 1
+
+            if self.reg_table.rowCount() != len(registers):
+                self.reg_table.setRowCount(len(registers))
+
+            modified_regs = []
+            if prefs.HIGHLIGHT_MODIFIED_REGS:
+                modified_regs = self.trace_data.get_modified_regs(row_id)
+
+            # fill register table
+            for i, reg in enumerate(registers):
+                self.reg_table.setItem(i, 0, QtWidgets.QTableWidgetItem(reg["name"]))
+                self.reg_table.setItem(i, 1, QtWidgets.QTableWidgetItem(hex(reg["value"])))
+                self.reg_table.setItem(i, 2, QtWidgets.QTableWidgetItem(str(reg["value"])))
+
+                if reg["name"] in modified_regs:
+                    self.reg_table.item(i, 0).setBackground(QtGui.QColor(100, 100, 150))
+                    self.reg_table.item(i, 1).setBackground(QtGui.QColor(100, 100, 150))
+                    self.reg_table.item(i, 2).setBackground(QtGui.QColor(100, 100, 150))
 
             if flags:
                 flags_text = f"C:{flags['c']} P:{flags['p']} Z:{flags['z']} S:{flags['s']}"
                 row_count = self.reg_table.rowCount()
                 self.reg_table.setRowCount(row_count + 1)
-                self.reg_table.setItem(row_count, 0, QtWidgets.QTableWidgetItem('flags'))
+                self.reg_table.setItem(row_count, 0, QtWidgets.QTableWidgetItem("flags"))
                 self.reg_table.setItem(row_count, 1, QtWidgets.QTableWidgetItem(flags_text))
 
         if "mem" in trace_row:
@@ -739,7 +758,7 @@ class MainWindow(QtWidgets.QMainWindow):
             title (str): Input dialog title
             label (str): Input dialog label
         Returns:
-            string: String given by user, None if user pressed cancel
+            string: String given by user, empty string if user pressed cancel
         """
         answer, ok_pressed = QtWidgets.QInputDialog.getText(self,
             title,

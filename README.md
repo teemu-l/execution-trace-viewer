@@ -107,13 +107,10 @@ USE_DARK_THEME = False
 
 ## To-Do
 
-- documentation
-- highlight modified regs
 - add support for more trace formats & architectures
 - fix x64dbg trace problem: if memory content doesn't change on write operation, the access is shown as 'READ' (bad design of the file format?)
 - fix tooltip size (bug in QDarkStylesheet?)
-
-Note: There are probably many bugs. So save often and keep backups of your traces and notes.
+- documentation
 
 ## License
 

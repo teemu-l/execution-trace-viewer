@@ -51,6 +51,26 @@ class TraceData:
             print('Unknown register')
         return index
 
+    def get_modified_regs(self, row):
+        """Returns modfied regs
+
+        Args:
+            row (int): Trace row index
+        Returns:
+            list: List of register names
+        """
+        modfied_regs = []
+        reg_values = self.trace[row]["regs"]
+        next_row = row + 1
+        if next_row < len(self.trace):
+            for reg_name, reg_index in self.regs.items():
+                reg_value = reg_values[reg_index]
+                next_row_data = self.trace[next_row]
+                next_reg_value = next_row_data["regs"][reg_index]
+                if next_reg_value != reg_value:
+                    modfied_regs.append(reg_name)
+        return modfied_regs
+
     def get_trace_rows(self, rows):
         """Returns a trace of specified rows
 
