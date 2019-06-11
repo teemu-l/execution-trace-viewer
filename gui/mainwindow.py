@@ -49,10 +49,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def init_plugins(self):
         """Inits plugins"""
         self.manager = PluginManager()
-        for plugin in self.manager.getAllPlugins():
-            print_debug("Plugin found: %s" % plugin.name)
         self.manager.setPluginPlaces(["plugins"])
         self.manager.collectPlugins()
+        for plugin in self.manager.getAllPlugins():
+            print_debug("Plugin found: %s" % plugin.name)
 
     def init_plugins_menu(self):
         """Inits plugins menu"""
@@ -71,9 +71,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def reload_plugins(self):
         """Reloads plugins"""
+        self.init_plugins()
         self.init_trace_table_menu()
         self.init_plugins_menu()
-        self.init_plugins()
 
     def init_ui(self):
         """Inits UI"""
@@ -276,7 +276,8 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             plugin.plugin_object.execute(self.api)
         except Exception:
-            print_debug("Error in plugin. Check log for details.")
+            print_debug("Error in plugin:")
+            print_debug(traceback.format_exc())
             self.print("Error in plugin:")
             self.print(traceback.format_exc())
         finally:
@@ -330,7 +331,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 direction=direction,
             )
         except Exception as exc:
-            print_debug("Error on find: " + str(exc))
+            print("Error on find: " + str(exc))
+            print(traceback.format_exc())
             self.print(traceback.format_exc())
             return
 
