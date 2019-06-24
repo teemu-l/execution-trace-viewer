@@ -1,14 +1,18 @@
 import re
-from enum import Enum
+from enum import Enum, auto
 
 
 class TraceField(Enum):
-    """Enum for trace fields. DISASM, REGS, MEM, COMMENT or ANY"""
-    DISASM = 0
-    REGS = 1
-    MEM = 2
-    COMMENT = 3
-    ANY = 4
+    """Enum for trace fields.
+        DISASM, REGS, MEM, MEM_ADDR, MEM_VALUE, COMMENT or ANY
+    """
+    DISASM = auto()
+    REGS = auto()
+    MEM = auto()
+    MEM_ADDR = auto()
+    MEM_VALUE = auto()
+    COMMENT = auto()
+    ANY = auto()
 
 
 def find(trace, field, keyword, start_row=0, direction=1):
@@ -47,11 +51,28 @@ def find(trace, field, keyword, start_row=0, direction=1):
                 return row
 
     elif field == TraceField.MEM:
-        if keyword.startswith("0x"):
+        keyword = keyword.strip()
+        if "0x" in keyword:
             keyword = int(keyword, 16)
         for row in range(start_row, last_row, direction):
             for mem in trace[row]["mem"]:
                 if keyword in mem.values():
+                    return row
+
+    elif field == TraceField.MEM_ADDR:
+        keyword = keyword.strip()
+        addr = int(keyword, 16)
+        for row in range(start_row, last_row, direction):
+            for mem in trace[row]["mem"]:
+                if addr == mem["addr"]:
+                    return row
+
+    elif field == TraceField.MEM_VALUE:
+        keyword = keyword.strip()
+        value = int(keyword, 16)
+        for row in range(start_row, last_row, direction):
+            for mem in trace[row]["mem"]:
+                if value == mem["value"]:
                     return row
 
     elif field == TraceField.COMMENT:

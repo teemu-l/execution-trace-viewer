@@ -318,8 +318,12 @@ class MainWindow(QtWidgets.QMainWindow):
         elif index == 2:
             field = TraceField.MEM
         elif index == 3:
-            field = TraceField.COMMENT
+            field = TraceField.MEM_ADDR
         elif index == 4:
+            field = TraceField.MEM_VALUE
+        elif index == 5:
+            field = TraceField.COMMENT
+        elif index == 6:
             field = TraceField.ANY
 
         try:

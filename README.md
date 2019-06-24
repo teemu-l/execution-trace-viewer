@@ -93,9 +93,9 @@ next_row = find(
 )
 ```
 
-Trace fields: DISASM, REGS, MEM, COMMENT, ANY
+Trace fields: DISASM, REGS, MEM, MEM_ADDR, MEM_VALUE, COMMENT, ANY
 
-DISASM field supports multiple keywords: "xor/shl/shr". Integers must be given in hexadecimal.
+DISASM field supports multiple keywords: "xor/shl/shr". MEM field checks all three fields in mem access (access, addr and value). Integers must be given in hexadecimal.
 
 ## Themes
 

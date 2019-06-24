@@ -27,7 +27,7 @@ SAMPLE_FILTERS = [
     "opcodes=c704"
 ]
 
-FIND_FIELDS = ["Disasm", "Regs", "Memory", "Comment", "Any"]
+FIND_FIELDS = ["Disasm", "Regs", "Memory", "Mem address", "Mem value", "Comment", "Any"]
 
 # columns for tables
 TRACE_LABELS = ["#", "address", "opcodes", "disasm", "comment"]
