@@ -35,6 +35,9 @@ BOOKMARK_LABELS = ["start row", "end row", "addr", "disasm", "comment"]
 REG_LABELS = ["reg", "hex", "dec"]
 MEM_LABELS = ["access", "address", "value"]
 
+# ask for comment when creating a bookmark?
+ASK_FOR_BOOKMARK_COMMENT = True
+
 # registers for x64dbg traces
 # if you want to see more regs, add them here (in correct order)
 # check the order of regs from REGISTERCONTEXT:

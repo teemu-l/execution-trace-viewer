@@ -71,7 +71,7 @@ It's possible to join multiple filters together:
 disasm=xor/reg_any=0x1337 ; show all xor instructions where atleast one register value is 0x1337
 ```
 
-For more complex filtering you can create a filter plugin and save the result list to main_window.filtered_trace.
+For more complex filtering you can create a filter plugin and save the result list using api.set_filtered_trace(). Then click the filter checkbox to switch between full and filtered trace.
 
 ## Find
 

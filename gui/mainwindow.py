@@ -143,7 +143,7 @@ class MainWindow(QtWidgets.QMainWindow):
         open_trace_action.triggered.connect(self.dialog_open_trace)
 
         self.save_trace_action = QtWidgets.QAction("&Save trace", self)
-        self.save_trace_action.setShortcut("Ctrl+S")
+        # self.save_trace_action.setShortcut("Ctrl+S")
         self.save_trace_action.setStatusTip("Save trace")
         self.save_trace_action.triggered.connect(self.save_trace)
         self.save_trace_action.setEnabled(False)
@@ -428,34 +428,6 @@ class MainWindow(QtWidgets.QMainWindow):
         text = "%s %s \n %s \n %s" % (name, version, copyrights, url)
         QtWidgets.QMessageBox().about(self, title, text)
 
-    def add_bookmark_to_table(self, bookmark):
-        """Adds a bookmark to bookmark table"""
-        table = self.bookmark_table
-        row_count = table.rowCount()
-        table.setRowCount(row_count + 1)
-
-        startrow = QtWidgets.QTableWidgetItem(bookmark.startrow)
-        startrow.setData(QtCore.Qt.DisplayRole, int(bookmark.startrow))
-        startrow.setWhatsThis("startrow")
-        table.setItem(row_count, 0, startrow)
-
-        endrow = QtWidgets.QTableWidgetItem(bookmark.endrow)
-        endrow.setData(QtCore.Qt.DisplayRole, int(bookmark.endrow))
-        endrow.setWhatsThis("endrow")
-        table.setItem(row_count, 1, endrow)
-
-        address = QtWidgets.QTableWidgetItem(bookmark.addr)
-        address.setWhatsThis("address")
-        table.setItem(row_count, 2, address)
-
-        disasm = QtWidgets.QTableWidgetItem(bookmark.disasm)
-        disasm.setWhatsThis("disasm")
-        table.setItem(row_count, 3, disasm)
-
-        comment = QtWidgets.QTableWidgetItem(bookmark.comment)
-        comment.setWhatsThis("comment")
-        table.setItem(row_count, 4, comment)
-
     def update_column_widths(self, table):
         """Updates column widths of a TableWidget to match the content"""
         table.setVisible(False)  # fix ui glitch with column widths
@@ -515,7 +487,7 @@ class MainWindow(QtWidgets.QMainWindow):
         row_ids = self.get_selected_row_ids(table)
         if not row_ids:
             return
-        row_id = int(row_ids[0])
+        row_id = row_ids[0]
         trace_row = self.trace_data.trace[row_id]
 
         if "regs" in trace_row:
@@ -596,7 +568,7 @@ class MainWindow(QtWidgets.QMainWindow):
         selected_row_id = 0
         row_ids = self.get_selected_row_ids(table)
         if row_ids:
-            selected_row_id = int(row_ids[0])
+            selected_row_id = row_ids[0]
 
         bookmark = self.trace_data.get_bookmark_from_row(selected_row_id)
         if bookmark:
@@ -609,35 +581,48 @@ class MainWindow(QtWidgets.QMainWindow):
         Args:
             table: PyQt TableWidget
         returns:
-            Ordered list of row ids
+            list: Ordered list of row ids
         """
+        # use a set so we don't get duplicate ids
         row_ids_set = set(
             table.item(index.row(), 0).text() for index in table.selectedIndexes()
         )
-        row_ids_list = list(row_ids_set)
         try:
-            row_ids_list.sort(key=int)
+            row_ids_list = [int(i) for i in row_ids_set]
         except ValueError:
             print_debug("Error. Values in the first column must be integers.")
             return None
-        return row_ids_list
+        return sorted(row_ids_list)
 
     def trace_table_create_bookmark(self):
         """Context menu action for creating a bookmark"""
         table = self.trace_table
-        selected = table.selectedItems()
-        if not selected:
+
+        selected_rows = table.selectedItems()
+        if not selected_rows:
             print_debug("Could not create a bookmark. Nothing selected.")
             return
-        first_row = selected[0].row()
-        last_row = selected[-1].row()
+        addr = table.item(selected_rows[0].row(), 1).text()
+        disasm = table.item(selected_rows[0].row(), 3).text()
+        comment = ""
+        if prefs.ASK_FOR_BOOKMARK_COMMENT:
+            comment = self.get_string_from_user(
+                "Bookmark comment", "Give a comment for bookmark:"
+            )
+        if not comment:
+            comment = table.item(selected_rows[0].row(), 4).text()
 
-        addr = table.item(first_row, 1).text()
-        first_row_id = int(table.item(first_row, 0).text())
-        last_row_id = int(table.item(last_row, 0).text())
+        selected_row_ids = self.get_selected_row_ids(table)
+        first_row_id = selected_row_ids[0]
+        last_row_id = selected_row_ids[-1]
 
-        print_debug("New bookmark: %d-%d, addr: %s" % (first_row_id, last_row_id, addr))
-        bookmark = Bookmark(startrow=first_row_id, endrow=last_row_id, addr=addr)
+        bookmark = Bookmark(
+            startrow=first_row_id,
+            endrow=last_row_id,
+            addr=addr,
+            disasm=disasm,
+            comment=comment
+        )
         self.trace_data.add_bookmark(bookmark)
         self.update_bookmark_table()
 
@@ -657,7 +642,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not selected_row_ids:
             print_debug("Error. No bookmark selected.")
             return
-        row_id = int(selected_row_ids[0])
+        row_id = selected_row_ids[0]
         if self.filter_check_box.isChecked():
             self.filter_check_box.setChecked(False)
         self.goto_row(self.trace_table, row_id)
@@ -678,7 +663,7 @@ class MainWindow(QtWidgets.QMainWindow):
         selected_rows = sorted(set({sel.row() for sel in selected}))
         for row in reversed(selected_rows):
             self.trace_data.delete_bookmark(row)
-        self.update_bookmark_table()
+            self.bookmark_table.removeRow(row)
 
     def get_selected_bookmarks(self):
         """Returns selected bookmarks"""
@@ -699,12 +684,33 @@ class MainWindow(QtWidgets.QMainWindow):
             table.itemChanged.disconnect()
         except Exception:
             pass
-        table.setRowCount(0)
         bookmarks = self.trace_data.get_bookmarks()
-        print_debug("Updating bookmark table: %d rows." % len(bookmarks))
-        for bookmark in bookmarks:
-            self.add_bookmark_to_table(bookmark)
-        table.setSortingEnabled(True)
+        table.setRowCount(len(bookmarks))
+
+        for i, bookmark in enumerate(bookmarks):
+            startrow = QtWidgets.QTableWidgetItem(bookmark.startrow)
+            startrow.setData(QtCore.Qt.DisplayRole, int(bookmark.startrow))
+            startrow.setWhatsThis("startrow")
+            table.setItem(i, 0, startrow)
+
+            endrow = QtWidgets.QTableWidgetItem(bookmark.endrow)
+            endrow.setData(QtCore.Qt.DisplayRole, int(bookmark.endrow))
+            endrow.setWhatsThis("endrow")
+            table.setItem(i, 1, endrow)
+
+            address = QtWidgets.QTableWidgetItem(bookmark.addr)
+            address.setWhatsThis("address")
+            table.setItem(i, 2, address)
+
+            disasm = QtWidgets.QTableWidgetItem(bookmark.disasm)
+            disasm.setWhatsThis("disasm")
+            table.setItem(i, 3, disasm)
+
+            comment = QtWidgets.QTableWidgetItem(bookmark.comment)
+            comment.setWhatsThis("comment")
+            table.setItem(i, 4, comment)
+
+        # print_debug("Updating bookmark table: %d rows." % len(bookmarks))
         table.itemChanged.connect(self.on_bookmark_table_cell_edited)
         self.update_column_widths(table)
 

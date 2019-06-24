@@ -4,7 +4,7 @@ from operator import attrgetter
 class TraceData:
     """TraceData class.
 
-    Class for storing execution traces and bookmarks.
+    Class for storing execution trace and bookmarks.
 
     Attributes:
         filename (str): A trace file name.
@@ -48,7 +48,7 @@ class TraceData:
         try:
             index = self.regs[reg_name]
         except KeyError:
-            print('Unknown register')
+            print("Unknown register")
         return index
 
     def get_modified_regs(self, row):
@@ -59,20 +59,20 @@ class TraceData:
         Returns:
             list: List of register names
         """
-        modfied_regs = []
+        modified_regs = []
         reg_values = self.trace[row]["regs"]
         next_row = row + 1
         if next_row < len(self.trace):
+            next_row_data = self.trace[next_row]
             for reg_name, reg_index in self.regs.items():
                 reg_value = reg_values[reg_index]
-                next_row_data = self.trace[next_row]
                 next_reg_value = next_row_data["regs"][reg_index]
                 if next_reg_value != reg_value:
-                    modfied_regs.append(reg_name)
-        return modfied_regs
+                    modified_regs.append(reg_name)
+        return modified_regs
 
     def get_trace_rows(self, rows):
-        """Returns a trace of specified rows
+        """Returns a trace of given rows
 
         Args:
             rows (list): List of trace indexes
@@ -81,8 +81,7 @@ class TraceData:
         """
         trace = []
         try:
-            for index in rows:
-                trace.append(self.trace[int(index)])
+            trace = [self.trace[int(i)] for i in rows]
         except IndexError:
             print("Error. Could not get trace rows.")
         return trace
@@ -108,7 +107,7 @@ class TraceData:
         return ip_name
 
     def get_instruction_pointer(self, row):
-        """Returns a value of instruction pointer of specified row
+        """Returns a value of instruction pointer of given row
 
         Args:
             row: Trace index
@@ -120,10 +119,8 @@ class TraceData:
             ip_name = self.get_instruction_pointer_name()
             reg_index = self.regs[ip_name]
             ip = self.trace[row]["regs"][reg_index]
-            # if ip_name in regs:
-            #     ip = regs[ip_name]
         except IndexError:
-            print("Error. Could not get IP from row " + str(row))
+            print(f"Error. Could not get IP from row {row}")
         return ip
 
     def set_comment(self, comment, row):
@@ -136,7 +133,7 @@ class TraceData:
         try:
             self.trace[row]["comment"] = str(comment)
         except IndexError:
-            print("Error. Could not set comment to row " + str(row))
+            print(f"Error. Could not set comment to row {row}")
 
     def add_bookmark(self, new_bookmark, replace=False):
         """Adds a new bookmark
@@ -147,12 +144,12 @@ class TraceData:
                 Defaults to False.
         """
         for i, bookmark in enumerate(self.bookmarks):
-            if self.bookmarks[i].startrow == new_bookmark.startrow:
+            if bookmark.startrow == new_bookmark.startrow:
                 if replace:
                     self.bookmarks[i] = new_bookmark
-                    print("Bookmark at %s replaced." % bookmark.startrow)
+                    print(f"Bookmark at {bookmark.startrow} replaced.")
                 else:
-                    print("Error: bookmark at %s already exists." % bookmark.startrow)
+                    print(f"Error: bookmark at {bookmark.startrow} already exists.")
                 return
         self.bookmarks.append(new_bookmark)
         self.sort_bookmarks()
@@ -168,7 +165,7 @@ class TraceData:
         try:
             del self.bookmarks[index]
         except IndexError:
-            print("Error. Could not delete a bookmark " + str(index))
+            print(f"Error. Could not delete a bookmark {index}")
             return False
         return True
 

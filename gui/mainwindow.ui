@@ -90,12 +90,12 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>0</width>
-                <height>23</height>
+                <width>24</width>
+                <height>24</height>
                </size>
               </property>
               <property name="toolTip">
-               <string>Enable/disable filter</string>
+               <string>Click to switch between full and filtered trace</string>
               </property>
               <property name="text">
                <string/>
@@ -352,7 +352,7 @@
                <bool>false</bool>
               </attribute>
               <attribute name="verticalHeaderDefaultSectionSize">
-               <number>22</number>
+               <number>24</number>
               </attribute>
               <attribute name="verticalHeaderMinimumSectionSize">
                <number>22</number>
@@ -381,7 +381,7 @@
                <bool>false</bool>
               </attribute>
               <attribute name="verticalHeaderDefaultSectionSize">
-               <number>22</number>
+               <number>24</number>
               </attribute>
               <attribute name="verticalHeaderMinimumSectionSize">
                <number>22</number>
