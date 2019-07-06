@@ -24,16 +24,20 @@ SAMPLE_FILTERS = [
     "mem_addr=0x4f20",
     "mem_read_addr=0x4f20",
     "mem_write_addr=0x4f20",
-    "opcodes=c704"
+    "opcodes=c704",
+    "comment=decrypt"
 ]
 
-FIND_FIELDS = ["Disasm", "Regs", "Memory", "Mem address", "Mem value", "Comment", "Any"]
+FIND_FIELDS = ["Disasm", "Regs", "Memory a/v", "Mem address", "Mem value", "Comment", "Any"]
 
 # columns for tables
 TRACE_LABELS = ["#", "address", "opcodes", "disasm", "comment"]
 BOOKMARK_LABELS = ["start row", "end row", "addr", "disasm", "comment"]
 REG_LABELS = ["reg", "hex", "dec"]
 MEM_LABELS = ["access", "address", "value"]
+
+PAGINATION_ENABLED = True
+PAGINATION_ROWS_PER_PAGE = 10000
 
 # ask for comment when creating a bookmark?
 ASK_FOR_BOOKMARK_COMMENT = True

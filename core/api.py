@@ -9,6 +9,16 @@ class Api:
         """Inits Api."""
         self.main_window = main_window
 
+    def add_bookmark(self, bookmark, replace=False):
+        """Adds a new bookmark
+
+        Args:
+            new_bookmark (Bookmark): A new bookmark
+            replace (bool): Replace an existing bookmark if found on same row?
+                Defaults to False.
+        """
+        return self.main_window.trace_data.add_bookmark(bookmark, replace)
+
     def ask_user(self, title, question):
         """Shows a messagebox with yes/no question
 
@@ -40,13 +50,6 @@ class Api:
         """Returns main_window object"""
         return self.main_window
 
-    def get_selected_trace(self):
-        """Returns list of selected trace"""
-        row_ids = self.get_selected_trace_row_ids()
-        trace_data = self.get_trace_data()
-        trace = trace_data.get_trace_rows(row_ids)
-        return trace
-
     def get_string_from_user(self, title, label):
         """Get string from user.
 
@@ -74,6 +77,7 @@ class Api:
         values = []
         if values_str:
             for value in values_str.split(","):
+                value = value.strip()
                 if "0x" in value:
                     values.append(int(value, 16))
                 else:
@@ -83,6 +87,13 @@ class Api:
     def get_selected_bookmarks(self):
         """Returns list of selected bookmarks"""
         return self.main_window.get_selected_bookmarks()
+
+    def get_selected_trace(self):
+        """Returns list of selected trace"""
+        row_ids = self.get_selected_trace_row_ids()
+        trace_data = self.get_trace_data()
+        trace = trace_data.get_trace_rows(row_ids)
+        return trace
 
     def get_selected_trace_row_ids(self):
         """Returns list of ids of selected rows"""
@@ -96,6 +107,18 @@ class Api:
         """Returns visible trace, either full or filtered trace"""
         return self.main_window.get_visible_trace()
 
+    def get_regs(self):
+        """Returns dictionary of registers and their indexes"""
+        return self.main_window.trace_data.get_regs()
+
+    def go_to_trace_row(self, row_id):
+        """Goes to given row in full trace
+
+        Args:
+            row_id (int): Row id
+        """
+        self.main_window.go_to_row_in_full_trace(row_id)
+
     def print(self, text):
         """Prints text to log
 
@@ -103,6 +126,18 @@ class Api:
             text (str): Text to print in log
         """
         self.main_window.print(str(text))
+
+    def set_comment(self, row, comment):
+        """Sets a comment to trace
+
+        Args:
+            row (int): A row index in full trace
+            comment (str): A comment text
+        """
+        try:
+            self.main_window.trace_data.trace[row]["comment"] = str(comment)
+        except IndexError:
+            print(f"Error. Could not set comment to row {row}")
 
     def set_filtered_trace(self, trace):
         """Sets filtered_trace
@@ -127,7 +162,7 @@ class Api:
 
     def update_trace_table(self):
         """Updates trace_table"""
-        self.main_window.update_trace_table()
+        self.main_window.trace_table.update()
 
     def update_bookmark_table(self):
         """Updates bookmark_table"""

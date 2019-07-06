@@ -2,11 +2,17 @@ import sys
 import os
 import functools
 import traceback
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
+
+from PyQt5 import uic
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import (
+    QMainWindow, QAction, QMenu, QFileDialog, QAbstractItemView, QMessageBox,
+    QInputDialog, QLineEdit, QTableWidgetItem
+)
 from yapsy.PluginManager import PluginManager
 
 from core.trace_data import TraceData
-from core.bookmark import Bookmark
 from core import trace_files
 from core.filter_and_find import find
 from core.filter_and_find import filter_trace
@@ -14,21 +20,24 @@ from core.filter_and_find import TraceField
 from core.syntax import AsmHighlighter
 from core.api import Api
 from core import prefs
+from gui.widgets.pagination_widget import PaginationWidget
+from gui.widgets.find_widget import FindWidget
+from gui.widgets.filter_widget import FilterWidget
 
 
-class MainWindow(QtWidgets.QMainWindow):
+class MainWindow(QMainWindow):
     """MainWindow class
 
     Attributes:
         trace_data (TraceData): TraceData object
         filtered_trace (list): Filtered trace
     """
-    def __init__(self):
+    def __init__(self, parent=None):
         """Inits MainWindow, UI and plugins"""
-        super(MainWindow, self).__init__()
+        super(MainWindow, self).__init__(parent)
         self.api = Api(self)
         self.trace_data = TraceData()
-        self.filtered_trace = None
+        self.filtered_trace = []
         self.init_plugins()
         self.init_ui()
         if len(sys.argv) > 1:
@@ -36,44 +45,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def dragEnterEvent(self, event):
         """QMainWindow method reimplementation for file drag."""
+        event.setDropAction(Qt.MoveAction)
+        super().dragEnterEvent(event)
         event.accept()
 
     def dropEvent(self, event):
         """QMainWindow method reimplementation for file drop."""
+        super().dropEvent(event)
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
                 local_file = url.toLocalFile()
                 if os.path.isfile(local_file):
                     self.open_trace(local_file)
-
-    def init_plugins(self):
-        """Inits plugins"""
-        self.manager = PluginManager()
-        self.manager.setPluginPlaces(["plugins"])
-        self.manager.collectPlugins()
-        for plugin in self.manager.getAllPlugins():
-            print_debug("Plugin found: %s" % plugin.name)
-
-    def init_plugins_menu(self):
-        """Inits plugins menu"""
-        self.plugins_topmenu.clear()
-        reload_action = QtWidgets.QAction("Reload plugins", self)
-        func = functools.partial(self.reload_plugins)
-        reload_action.triggered.connect(func)
-        self.plugins_topmenu.addAction(reload_action)
-        self.plugins_topmenu.addSeparator()
-
-        for plugin in self.manager.getAllPlugins():
-            action = QtWidgets.QAction(plugin.name, self)
-            func = functools.partial(self.execute_plugin, plugin)
-            action.triggered.connect(func)
-            self.plugins_topmenu.addAction(action)
-
-    def reload_plugins(self):
-        """Reloads plugins"""
-        self.init_plugins()
-        self.init_trace_table_menu()
-        self.init_plugins_menu()
 
     def init_ui(self):
         """Inits UI"""
@@ -81,12 +64,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         title = prefs.PACKAGE_NAME + " " + prefs.PACKAGE_VERSION
         self.setWindowTitle(title)
-
-        self.filter_button.clicked.connect(self.on_filter_clicked)
-        self.filter_check_box.stateChanged.connect(self.on_filter_check_box_state_changed)
-
-        self.find_next_button.clicked.connect(lambda: self.on_find_clicked(1))
-        self.find_prev_button.clicked.connect(lambda: self.on_find_clicked(-1))
 
         # accept file drops
         self.setAcceptDrops(True)
@@ -96,18 +73,37 @@ class MainWindow(QtWidgets.QMainWindow):
         self.splitter2.setSizes([600, 100])
 
         # Init trace table
+        self.trace_table.rowChanged.connect(self.on_trace_table_row_changed)
         self.trace_table.setColumnCount(len(prefs.TRACE_LABELS))
         self.trace_table.setHorizontalHeaderLabels(prefs.TRACE_LABELS)
-        self.trace_table.itemSelectionChanged.connect(self.on_trace_table_selection_changed)
-        self.trace_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.trace_table.customContextMenuRequested.connect(
-            self.trace_table_context_menu_event
-        )
+        self.trace_table.horizontalHeader().setStretchLastSection(True)
+        self.trace_table.bookmarkCreated.connect(self.add_bookmark)
+        self.trace_table.commentEdited.connect(self.set_comment)
+        self.trace_table.printer = self.print
+        self.trace_table.api = self.api
 
-        # Init register table
+
+        # trace pagination
+        if prefs.PAGINATION_ENABLED:
+            self.trace_pagination = PaginationWidget()
+            self.trace_pagination.pageChanged.connect(self.trace_table.update)
+            self.horizontalLayout.addWidget(self.trace_pagination)
+            self.trace_pagination.set_enabled(True)
+            self.trace_pagination.rows_per_page = prefs.PAGINATION_ROWS_PER_PAGE
+
+            self.trace_table.pagination = self.trace_pagination
+            self.horizontalLayout.setAlignment(self.trace_pagination, Qt.AlignLeft)
+
+        # these are used to remember current pages for both traces
+        self.trace_current_page = 1
+        self.filtered_trace_current_page = 1
+
         self.reg_table.setColumnCount(len(prefs.REG_LABELS))
         self.reg_table.setHorizontalHeaderLabels(prefs.REG_LABELS)
         self.reg_table.horizontalHeader().setStretchLastSection(True)
+
+        if prefs.REG_FILTER_ENABLED:
+            self.reg_table.filtered_regs = prefs.REG_FILTER
 
         # Init memory table
         self.mem_table.setColumnCount(len(prefs.MEM_LABELS))
@@ -117,42 +113,41 @@ class MainWindow(QtWidgets.QMainWindow):
         # Init bookmark table
         self.bookmark_table.setColumnCount(len(prefs.BOOKMARK_LABELS))
         self.bookmark_table.setHorizontalHeaderLabels(prefs.BOOKMARK_LABELS)
-        self.bookmark_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.bookmark_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.bookmark_table.customContextMenuRequested.connect(
             self.bookmark_table_context_menu_event
         )
 
-        self.bookmark_menu = QtWidgets.QMenu(self)
+        self.bookmark_menu = QMenu(self)
 
-        go_action = QtWidgets.QAction("Go to bookmark", self)
-        go_action.triggered.connect(self.go_to_bookmark)
+        go_action = QAction("Go to bookmark", self)
+        go_action.triggered.connect(self.go_to_bookmark_in_trace)
         self.bookmark_menu.addAction(go_action)
 
-        delete_bookmarks_action = QtWidgets.QAction("Delete bookmark(s)", self)
+        delete_bookmarks_action = QAction("Delete bookmark(s)", self)
         delete_bookmarks_action.triggered.connect(self.delete_bookmarks)
         self.bookmark_menu.addAction(delete_bookmarks_action)
 
         # Menu
-        exit_action = QtWidgets.QAction("&Exit", self)
+        exit_action = QAction("&Exit", self)
         exit_action.setShortcut("Ctrl+Q")
         exit_action.setStatusTip("Exit application")
         exit_action.triggered.connect(self.close)
 
-        open_trace_action = QtWidgets.QAction("&Open trace..", self)
+        open_trace_action = QAction("&Open trace..", self)
         open_trace_action.setStatusTip("Open trace")
         open_trace_action.triggered.connect(self.dialog_open_trace)
 
-        self.save_trace_action = QtWidgets.QAction("&Save trace", self)
-        # self.save_trace_action.setShortcut("Ctrl+S")
+        self.save_trace_action = QAction("&Save trace", self)
         self.save_trace_action.setStatusTip("Save trace")
         self.save_trace_action.triggered.connect(self.save_trace)
         self.save_trace_action.setEnabled(False)
 
-        save_trace_as_action = QtWidgets.QAction("&Save trace as..", self)
+        save_trace_as_action = QAction("&Save trace as..", self)
         save_trace_as_action.setStatusTip("Save trace as..")
         save_trace_as_action.triggered.connect(self.dialog_save_trace_as)
 
-        save_trace_as_json_action = QtWidgets.QAction("&Save trace as JSON..", self)
+        save_trace_as_json_action = QAction("&Save trace as JSON..", self)
         save_trace_as_json_action.setStatusTip("Save trace as JSON..")
         save_trace_as_json_action.triggered.connect(self.dialog_save_trace_as_json)
 
@@ -165,7 +160,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.plugins_topmenu = self.menu_bar.addMenu("&Plugins")
 
-        clear_bookmarks_action = QtWidgets.QAction("&Clear bookmarks", self)
+        clear_bookmarks_action = QAction("&Clear bookmarks", self)
         clear_bookmarks_action.setStatusTip("Clear bookmarks")
         clear_bookmarks_action.triggered.connect(self.clear_bookmarks)
 
@@ -174,9 +169,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Init right click menu for trace table
         self.init_trace_table_menu()
+        # Init plugins menu on menu bar
         self.init_plugins_menu()
 
-        about_action = QtWidgets.QAction("&About", self)
+        about_action = QAction("&About", self)
         about_action.triggered.connect(self.show_about_dialog)
 
         about_menu = self.menu_bar.addMenu("&About")
@@ -185,65 +181,172 @@ class MainWindow(QtWidgets.QMainWindow):
         if prefs.USE_SYNTAX_HIGHLIGHT:
             self.highlight = AsmHighlighter(self.log_text_edit.document())
 
-        for field in prefs.FIND_FIELDS:
-            self.find_combo_box.addItem(field)
+        # trace select
+        self.select_trace_combo_box.addItem("Full trace")
+        self.select_trace_combo_box.addItem("Filtered trace")
+        self.select_trace_combo_box.currentIndexChanged.connect(
+            self.trace_combo_box_index_changed
+        )
 
+        self.filter_widget = FilterWidget()
+        self.filter_widget.filterBtnClicked.connect(self.on_filter_btn_clicked)
+        self.horizontalLayout.addWidget(self.filter_widget)
         if prefs.SHOW_SAMPLE_FILTERS:
-            for sample_filter in prefs.SAMPLE_FILTERS:
-                self.filter_edit.addItem(sample_filter)
+            self.filter_widget.set_sample_filters(prefs.SAMPLE_FILTERS)
 
-        self.filter_edit.keyPressEvent = self.on_filter_edit_key_pressed
+        self.find_widget = FindWidget()
+        self.find_widget.findBtnClicked.connect(self.on_find_btn_clicked)
+        self.find_widget.set_fields(prefs.FIND_FIELDS)
+        self.horizontalLayout.addWidget(self.find_widget)
 
         self.show()
 
-    def init_trace_table_menu(self):
-        """Initializes right click menu for trace table"""
-        self.trace_table_menu = QtWidgets.QMenu(self)
+    def init_plugins(self):
+        """Inits plugins"""
+        self.manager = PluginManager()
+        self.manager.setPluginPlaces(["plugins"])
+        self.manager.collectPlugins()
+        for plugin in self.manager.getAllPlugins():
+            print_debug(f"Plugin found: {plugin.name}")
 
-        copy_action = QtWidgets.QAction("Print selected cells", self)
-        copy_action.triggered.connect(self.trace_table_print_cells)
-        self.trace_table_menu.addAction(copy_action)
-
-        add_bookmark_action = QtWidgets.QAction("Add Bookmark", self)
-        add_bookmark_action.triggered.connect(self.trace_table_create_bookmark)
-        self.trace_table_menu.addAction(add_bookmark_action)
-
-        plugins_menu = QtWidgets.QMenu("Plugins", self)
+    def init_plugins_menu(self):
+        """Inits plugins menu"""
+        self.plugins_topmenu.clear()
+        reload_action = QAction("Reload plugins", self)
+        func = functools.partial(self.reload_plugins)
+        reload_action.triggered.connect(func)
+        self.plugins_topmenu.addAction(reload_action)
+        self.plugins_topmenu.addSeparator()
 
         for plugin in self.manager.getAllPlugins():
-            action = QtWidgets.QAction(plugin.name, self)
+            action = QAction(plugin.name, self)
+            func = functools.partial(self.execute_plugin, plugin)
+            action.triggered.connect(func)
+            self.plugins_topmenu.addAction(action)
+
+    def init_trace_table_menu(self):
+        """Initializes right click menu for trace table"""
+        self.trace_table_menu = QMenu(self)
+
+        copy_action = QAction("Print selected cells", self)
+        copy_action.triggered.connect(self.trace_table.print_selected_cells)
+        self.trace_table_menu.addAction(copy_action)
+
+        add_bookmark_action = QAction("Add Bookmark", self)
+        add_bookmark_action.triggered.connect(self.trace_table.create_bookmark)
+        self.trace_table_menu.addAction(add_bookmark_action)
+
+        plugins_menu = QMenu("Plugins", self)
+
+        for plugin in self.manager.getAllPlugins():
+            action = QAction(plugin.name, self)
             func = functools.partial(self.execute_plugin, plugin)
             action.triggered.connect(func)
             plugins_menu.addAction(action)
         self.trace_table_menu.addMenu(plugins_menu)
+        self.trace_table.menu = self.trace_table_menu
 
-    def set_filter(self, filter_text):
-        """Sets a a new filter for trace and filters trace"""
+    def reload_plugins(self):
+        """Reloads plugins"""
+        self.init_plugins()
+        self.init_trace_table_menu()
+        self.init_plugins_menu()
+
+    def on_trace_table_row_changed(self, row_id):
+        regs = self.trace_data.get_regs_and_values(row_id)
+        modified_regs = []
+        if prefs.HIGHLIGHT_MODIFIED_REGS:
+            modified_regs = self.trace_data.get_modified_regs(row_id)
+        self.reg_table.set_data(regs, modified_regs)
+        mem = []
+        if 'mem' in self.trace_data.trace[row_id]:
+            mem = self.trace_data.trace[row_id]["mem"]
+        self.mem_table.set_data(mem)
+        self.update_status_bar()
+
+    def on_filter_btn_clicked(self, filter_text):
+        if self.trace_data is None:
+            return
         try:
-            self.filtered_trace = filter_trace(
-                self.trace_data.trace,
-                self.trace_data.regs,
+            filtered_trace = filter_trace(
+                self.trace_data.trace, # get_visible_trace(),
+                self.trace_data.get_regs(),
                 filter_text
             )
         except Exception as exc:
-            print("Error on filter: " + str(exc))
+            print(f"Error in filter: {exc}")
+            # print(traceback.format_exc())
+        else:
+            self.filtered_trace = filtered_trace
+            self.show_filtered_trace()
+
+    def on_find_btn_clicked(self, keyword, field_index, direction):
+        """Find next or prev button clicked"""
+        current_row = self.trace_table.currentRow()
+        if current_row < 0:
+            current_row = 0
+
+        if self.trace_table.pagination is not None:
+            pagination = self.trace_table.pagination
+            page = pagination.current_page
+            rows_per_page = pagination.rows_per_page
+            current_row += (page - 1) * rows_per_page
+
+        if field_index == 0:
+            field = TraceField.DISASM
+        elif field_index == 1:
+            field = TraceField.REGS
+        elif field_index == 2:
+            field = TraceField.MEM
+        elif field_index == 3:
+            field = TraceField.MEM_ADDR
+        elif field_index == 4:
+            field = TraceField.MEM_VALUE
+        elif field_index == 5:
+            field = TraceField.COMMENT
+        elif field_index == 6:
+            field = TraceField.ANY
+
+        try:
+            row_number = find(
+                trace=self.get_visible_trace(),
+                field=field,
+                keyword=keyword,
+                start_row=current_row + direction,
+                direction=direction,
+            )
+        except Exception as exc:
+            print(f"Error in find: {str(exc)}")
             print(traceback.format_exc())
+            self.print(traceback.format_exc())
+            return
+
+        if row_number is not None:
+            self.trace_table.go_to_row(row_number)
+        else:
+            print_debug(
+                f"{keyword} not found (row: {current_row}, direction: {direction})"
+            )
 
     def get_visible_trace(self):
         """Returns the trace that is currently shown on trace table"""
-        if self.filter_check_box.isChecked() and self.filtered_trace is not None:
-            return self.filtered_trace
-        return self.trace_data.trace
+        index = self.select_trace_combo_box.currentIndex()
+        if self.trace_data is not None:
+            if index == 0:
+                return self.trace_data.trace
+            else:
+                return self.filtered_trace
+        return None
 
     def bookmark_table_context_menu_event(self):
         """Context menu for bookmark table right click"""
-        self.bookmark_menu.popup(QtGui.QCursor.pos())
+        self.bookmark_menu.popup(QCursor.pos())
 
     def dialog_open_trace(self):
         """Shows dialog to open trace file"""
         all_traces = "All traces (*.tvt *.trace32 *.trace64)"
         all_files = "All files (*.*)"
-        filename = QtWidgets.QFileDialog.getOpenFileName(
+        filename = QFileDialog.getOpenFileName(
             self, "Open trace", "", all_traces + ";; " + all_files
         )[0]
         if filename:
@@ -253,7 +356,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def dialog_save_trace_as(self):
         """Shows a dialog to select a save file"""
-        filename = QtWidgets.QFileDialog.getSaveFileName(
+        filename = QFileDialog.getSaveFileName(
             self, "Save trace as", "", "Trace Viewer traces (*.tvt);; All files (*.*)"
         )[0]
         print_debug("Save trace as: " + filename)
@@ -263,7 +366,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def dialog_save_trace_as_json(self):
         """Shows a dialog to save trace to JSON file"""
-        filename = QtWidgets.QFileDialog.getSaveFileName(
+        filename = QFileDialog.getSaveFileName(
             self, "Save as JSON", "", "JSON files (*.txt);; All files (*.*)"
         )[0]
         print_debug("Save trace as: " + filename)
@@ -272,105 +375,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def execute_plugin(self, plugin):
         """Executes a plugin and updates tables"""
-        print_debug("Executing a plugin: %s" % plugin.name)
+        print_debug(f"Executing a plugin: {plugin.name}")
         try:
             plugin.plugin_object.execute(self.api)
         except Exception:
-            print_debug("Error in plugin:")
-            print_debug(traceback.format_exc())
+            print("Error in plugin:")
+            print(traceback.format_exc())
             self.print("Error in plugin:")
             self.print(traceback.format_exc())
         finally:
             if prefs.USE_SYNTAX_HIGHLIGHT:
                 self.highlight.rehighlight()
 
-    def on_filter_edit_key_pressed(self, event):
-        """Checks if enter is pressed on filterEdit"""
-        key = event.key()
-        if key == QtCore.Qt.Key_Return:
-            self.on_filter_clicked()
-        QtWidgets.QComboBox.keyPressEvent(self.filter_edit, event)
-
     def show_filtered_trace(self):
         """Shows filtered_trace on trace_table"""
-        if not self.filter_check_box.isChecked():
-            self.filter_check_box.setChecked(True) # this will also update trace_table
+        if self.select_trace_combo_box.currentIndex() == 0:
+            self.select_trace_combo_box.setCurrentIndex(1)
         else:
-            self.update_trace_table()
+            self.trace_table.set_data(self.filtered_trace)
+            self.trace_table.update()
 
-    def on_filter_check_box_state_changed(self):
-        """Callback function for state change of filter checkbox"""
-        self.update_trace_table()
-
-    def on_find_clicked(self, direction):
-        """Find next or prev button clicked"""
-
-        row = self.trace_table.currentRow()
-        if row < 0:
-            row = 0
-
-        keyword = self.search_edit.text()
-        index = self.find_combo_box.currentIndex()
-        if index == 0:
-            field = TraceField.DISASM
-        elif index == 1:
-            field = TraceField.REGS
-        elif index == 2:
-            field = TraceField.MEM
-        elif index == 3:
-            field = TraceField.MEM_ADDR
-        elif index == 4:
-            field = TraceField.MEM_VALUE
-        elif index == 5:
-            field = TraceField.COMMENT
-        elif index == 6:
-            field = TraceField.ANY
-
-        try:
-            row_number = find(
-                trace=self.get_visible_trace(),
-                field=field,
-                keyword=keyword,
-                start_row=row + direction,
-                direction=direction,
-            )
-        except Exception as exc:
-            print("Error on find: " + str(exc))
-            print(traceback.format_exc())
-            self.print(traceback.format_exc())
-            return
-
-        if row_number is not None:
-            self.goto_row(self.trace_table, row_number)
-            self.select_row(self.trace_table, row_number)
-        else:
-            print_debug(
-                "%s not found (row %d, direction %d)" % (keyword, row, direction)
-            )
-
-    def on_filter_clicked(self):
-        """Sets a filter and filters trace data"""
-        filter_text = self.filter_edit.currentText()
-        print_debug("Set filter: %s" % filter_text)
-        self.set_filter(filter_text)
-        if not self.filter_check_box.isChecked():
-            self.filter_check_box.setChecked(True)
-        else:
-            self.update_trace_table()
-
-    def on_trace_table_cell_edited(self, item):
-        """Called when any cell is edited on trace table"""
-        table = self.trace_table
-        cell_type = item.whatsThis()
-        if cell_type == "comment":
-            row = table.currentRow()
-            if row < 0:
-                print_debug("Error, could not edit trace.")
-                return
-            row_id = int(table.item(row, 0).text())
-            self.trace_data.set_comment(item.text(), row_id)
-        else:
-            print_debug("Only comment editing allowed for now...")
+    def set_comment(self, row_id, comment):
+        """Sets comment to row on full trace"""
+        self.trace_data.set_comment(row_id, comment)
 
     def on_bookmark_table_cell_edited(self, item):
         """Called when any cell is edited on bookmark table"""
@@ -391,27 +418,33 @@ class MainWindow(QtWidgets.QMainWindow):
         elif cell_type == "comment":
             bookmarks[row].comment = item.text()
         else:
-            print_debug("Unknown field edited in bookmark table...")
+            print_debug("Unknown field edited on bookmark table...")
 
     def open_trace(self, filename):
         """Opens and reads a trace file"""
-        print_debug("Opening trace file: %s" % filename)
+        print_debug(f"Opening trace file: {filename}")
         self.close_trace()
         self.trace_data = trace_files.open_trace(filename)
         if self.trace_data is None:
-            print_debug("Error, couldn't open trace file: %s" % filename)
-        self.update_ui()
-        self.update_column_widths(self.trace_table)
+            print_debug(f"Error, couldn't open trace file: {filename}")
+        else:
+            if prefs.PAGINATION_ENABLED:
+                self.trace_pagination.set_current_page(1, True)
+            self.trace_table.set_data(self.trace_data.trace)
+            self.trace_table.update()
+        self.update_bookmark_table()
+        self.trace_table.update_column_widths()
 
     def close_trace(self):
         """Clears trace and updates UI"""
         self.trace_data = None
-        self.filtered_trace = None
+        self.filtered_trace = []
+        self.trace_table.set_data([])
         self.update_ui()
 
     def update_ui(self):
         """Updates tables and status bar"""
-        self.update_trace_table()
+        self.trace_table.update()
         self.update_bookmark_table()
         self.update_status_bar()
 
@@ -429,8 +462,8 @@ class MainWindow(QtWidgets.QMainWindow):
         version = prefs.PACKAGE_VERSION
         copyrights = prefs.PACKAGE_COPYRIGHTS
         url = prefs.PACKAGE_URL
-        text = "%s %s \n %s \n %s" % (name, version, copyrights, url)
-        QtWidgets.QMessageBox().about(self, title, text)
+        text = f"{name} {version} \n {copyrights} \n {url}"
+        QMessageBox().about(self, title, text)
 
     def update_column_widths(self, table):
         """Updates column widths of a TableWidget to match the content"""
@@ -438,124 +471,6 @@ class MainWindow(QtWidgets.QMainWindow):
         table.resizeColumnsToContents()
         table.horizontalHeader().setStretchLastSection(True)
         table.setVisible(True)
-
-    def update_trace_table(self):
-        """Updates trace table"""
-        table = self.trace_table
-
-        if self.trace_data is None:
-            table.setRowCount(0)
-            return
-        try:
-            table.itemChanged.disconnect()
-        except Exception:
-            pass
-
-        trace = self.get_visible_trace()
-        row_count = len(trace)
-        print_debug("Updating trace table: %d rows." % row_count)
-        table.setRowCount(row_count)
-        if row_count == 0:
-            return
-
-        ip_name = self.trace_data.get_instruction_pointer_name()
-        if ip_name:
-            ip_reg_index = self.trace_data.regs[ip_name]
-
-        for i in range(0, row_count):
-            row_id = str(trace[i]["id"])
-            if ip_name:
-                address = trace[i]["regs"][ip_reg_index]
-                table.setItem(i, 1, QtWidgets.QTableWidgetItem(hex(address)))
-            opcodes = trace[i]["opcodes"]
-            disasm = trace[i]["disasm"]
-            comment = str(trace[i]["comment"])
-            comment_item = QtWidgets.QTableWidgetItem(comment)
-            comment_item.setWhatsThis("comment")
-            table.setItem(i, 0, QtWidgets.QTableWidgetItem(row_id))
-            table.setItem(i, 2, QtWidgets.QTableWidgetItem(opcodes))
-            table.setItem(i, 3, QtWidgets.QTableWidgetItem(disasm))
-            table.setItem(i, 4, comment_item)
-        table.itemChanged.connect(self.on_trace_table_cell_edited)
-
-    def update_regs_and_mem(self):
-        """Updates register and memory tables"""
-
-        # clear mem_table
-        self.mem_table.setRowCount(0)
-
-        if self.trace_data is None:
-            return
-
-        table = self.trace_table
-        row_ids = self.get_selected_row_ids(table)
-        if not row_ids:
-            return
-        row_id = row_ids[0]
-        trace_row = self.trace_data.trace[row_id]
-
-        if "regs" in trace_row:
-            registers = []
-            flags = None
-            reg_values = trace_row["regs"]
-            
-            for reg_name, reg_index in self.trace_data.regs.items():
-                if (self.trace_data.arch in ('x86', 'x64') and prefs.REG_FILTER_ENABLED
-                        and reg_name not in prefs.REG_FILTER):
-                    continue  # don't show this register
-
-                reg_value = reg_values[reg_index]
-
-                reg = {}
-                reg["name"] = reg_name
-                reg["value"] = reg_value
-                registers.append(reg)
-
-                if reg_name == "eflags":
-                    eflags = reg_value
-                    flags = {
-                        "c": eflags & 1,           # carry
-                        "p": (eflags >> 2) & 1,    # parity
-                        # "a": (eflags >> 4) & 1,  # aux_carry
-                        "z": (eflags >> 6) & 1,    # zero
-                        "s": (eflags >> 7) & 1,    # sign
-                        # "d": (eflags >> 10) & 1, # direction
-                        # "o":  (eflags >> 11) & 1 # overflow
-                    }
-
-            if self.reg_table.rowCount() != len(registers):
-                self.reg_table.setRowCount(len(registers))
-
-            modified_regs = []
-            if prefs.HIGHLIGHT_MODIFIED_REGS:
-                modified_regs = self.trace_data.get_modified_regs(row_id)
-
-            # fill register table
-            for i, reg in enumerate(registers):
-                self.reg_table.setItem(i, 0, QtWidgets.QTableWidgetItem(reg["name"]))
-                self.reg_table.setItem(i, 1, QtWidgets.QTableWidgetItem(hex(reg["value"])))
-                self.reg_table.setItem(i, 2, QtWidgets.QTableWidgetItem(str(reg["value"])))
-
-                if reg["name"] in modified_regs:
-                    self.reg_table.item(i, 0).setBackground(QtGui.QColor(100, 100, 150))
-                    self.reg_table.item(i, 1).setBackground(QtGui.QColor(100, 100, 150))
-                    self.reg_table.item(i, 2).setBackground(QtGui.QColor(100, 100, 150))
-
-            if flags:
-                flags_text = f"C:{flags['c']} P:{flags['p']} Z:{flags['z']} S:{flags['s']}"
-                row_count = self.reg_table.rowCount()
-                self.reg_table.setRowCount(row_count + 1)
-                self.reg_table.setItem(row_count, 0, QtWidgets.QTableWidgetItem("flags"))
-                self.reg_table.setItem(row_count, 1, QtWidgets.QTableWidgetItem(flags_text))
-
-        if "mem" in trace_row:
-            mems = trace_row["mem"]
-            self.mem_table.setRowCount(len(mems))
-            for i, mem in enumerate(mems):
-                self.mem_table.setItem(i, 0, QtWidgets.QTableWidgetItem(mem["access"]))
-                self.mem_table.setItem(i, 1, QtWidgets.QTableWidgetItem(hex(mem["addr"])))
-                self.mem_table.setItem(i, 2, QtWidgets.QTableWidgetItem(hex(mem["value"])))
-            self.update_column_widths(self.mem_table)
 
     def update_status_bar(self):
         """Updates status bar"""
@@ -565,18 +480,22 @@ class MainWindow(QtWidgets.QMainWindow):
         row = table.currentRow()
 
         row_count = table.rowCount()
-        row_info = "%d/%d" % (row, row_count - 1)
+        row_info = f"{row}/{row_count - 1}"
         filename = self.trace_data.filename.split("/")[-1]
-        msg = "File: %s | Row: %s " % (filename, row_info)
+        msg = f"File: {filename} | Row: {row_info} "
 
         selected_row_id = 0
-        row_ids = self.get_selected_row_ids(table)
+        row_ids = self.trace_table.get_selected_row_ids()
         if row_ids:
             selected_row_id = row_ids[0]
 
+        msg += f" | {len(self.trace_data.trace)} rows in full trace."
+        msg += f" | {len(self.filtered_trace)} rows in filtered trace."
+
         bookmark = self.trace_data.get_bookmark_from_row(selected_row_id)
         if bookmark:
-            msg += " | Bookmark: %s   ; %s" % (bookmark.disasm, bookmark.comment)
+            msg += f" | Bookmark: {bookmark.disasm}   ; {bookmark.comment}"
+
         self.status_bar.showMessage(msg)
 
     def get_selected_row_ids(self, table):
@@ -598,60 +517,38 @@ class MainWindow(QtWidgets.QMainWindow):
             return None
         return sorted(row_ids_list)
 
-    def trace_table_create_bookmark(self):
-        """Context menu action for creating a bookmark"""
-        table = self.trace_table
+    def trace_combo_box_index_changed(self, index):
+        """Trace selection combo box index changed"""
+        self.trace_table.set_data(self.get_visible_trace())
+        if prefs.PAGINATION_ENABLED:
+            # remember current pages
+            if index == 0:
+                self.filtered_trace_current_page = self.trace_pagination.current_page
+                self.trace_pagination.set_current_page(self.trace_current_page, True)
+            elif index == 1:
+                self.trace_current_page = self.trace_pagination.current_page
+                self.trace_pagination.set_current_page(self.filtered_trace_current_page, True)
+        self.trace_table.update()
 
-        selected_rows = table.selectedItems()
-        if not selected_rows:
-            print_debug("Could not create a bookmark. Nothing selected.")
-            return
-        addr = table.item(selected_rows[0].row(), 1).text()
-        disasm = table.item(selected_rows[0].row(), 3).text()
-        comment = ""
-        if prefs.ASK_FOR_BOOKMARK_COMMENT:
-            comment = self.get_string_from_user(
-                "Bookmark comment", "Give a comment for bookmark:"
-            )
-        if not comment:
-            comment = table.item(selected_rows[0].row(), 4).text()
+    def go_to_row_in_visible_trace(self, row):
+        """Goes to given row in currently visible trace"""
+        self.trace_table.go_to_row(row)
+        self.tab_widget.setCurrentIndex(0)
 
-        selected_row_ids = self.get_selected_row_ids(table)
-        first_row_id = selected_row_ids[0]
-        last_row_id = selected_row_ids[-1]
+    def go_to_row_in_full_trace(self, row_id):
+        """Switches to full trace and goes to given row"""
+        # make sure we are shown full trace, not filtered
+        if self.select_trace_combo_box.currentIndex() == 1:
+            self.select_trace_combo_box.setCurrentIndex(0)
+        self.go_to_row_in_visible_trace(row_id)
 
-        bookmark = Bookmark(
-            startrow=first_row_id,
-            endrow=last_row_id,
-            addr=addr,
-            disasm=disasm,
-            comment=comment
-        )
-        self.trace_data.add_bookmark(bookmark)
-        self.update_bookmark_table()
-
-    def trace_table_print_cells(self):
-        """Context menu action for trace table print cells"""
-        items = self.trace_table.selectedItems()
-        for item in items:
-            self.print(item.text())
-
-    def trace_table_context_menu_event(self):
-        """Context menu for trace table right click"""
-        self.trace_table_menu.popup(QtGui.QCursor.pos())
-
-    def go_to_bookmark(self):
-        """Goes to selected bookmark"""
+    def go_to_bookmark_in_trace(self):
+        """Goes to trace row of selected bookmark"""
         selected_row_ids = self.get_selected_row_ids(self.bookmark_table)
         if not selected_row_ids:
             print_debug("Error. No bookmark selected.")
             return
-        row_id = selected_row_ids[0]
-        if self.filter_check_box.isChecked():
-            self.filter_check_box.setChecked(False)
-        self.goto_row(self.trace_table, row_id)
-        self.select_row(self.trace_table, row_id)
-        self.tab_widget.setCurrentIndex(0)
+        self.go_to_row_in_full_trace(selected_row_ids[0])
 
     def clear_bookmarks(self):
         """Clears all bookmarks"""
@@ -679,6 +576,16 @@ class MainWindow(QtWidgets.QMainWindow):
         all_bookmarks = self.trace_data.get_bookmarks()
         return [all_bookmarks[i] for i in selected_rows]
 
+    def add_bookmark(self, bookmark):
+        if prefs.ASK_FOR_BOOKMARK_COMMENT:
+            comment = self.get_string_from_user(
+                "Bookmark comment", "Give a comment for bookmark:"
+            )
+            if comment:
+                bookmark.comment = comment
+        self.trace_data.add_bookmark(bookmark)
+        self.update_bookmark_table()
+
     def update_bookmark_table(self):
         """Updates bookmarks table from trace_data"""
         if self.trace_data is None:
@@ -692,55 +599,38 @@ class MainWindow(QtWidgets.QMainWindow):
         table.setRowCount(len(bookmarks))
 
         for i, bookmark in enumerate(bookmarks):
-            startrow = QtWidgets.QTableWidgetItem(bookmark.startrow)
-            startrow.setData(QtCore.Qt.DisplayRole, int(bookmark.startrow))
+            startrow = QTableWidgetItem(bookmark.startrow)
+            startrow.setData(Qt.DisplayRole, int(bookmark.startrow))
             startrow.setWhatsThis("startrow")
             table.setItem(i, 0, startrow)
 
-            endrow = QtWidgets.QTableWidgetItem(bookmark.endrow)
-            endrow.setData(QtCore.Qt.DisplayRole, int(bookmark.endrow))
+            endrow = QTableWidgetItem(bookmark.endrow)
+            endrow.setData(Qt.DisplayRole, int(bookmark.endrow))
             endrow.setWhatsThis("endrow")
             table.setItem(i, 1, endrow)
 
-            address = QtWidgets.QTableWidgetItem(bookmark.addr)
+            address = QTableWidgetItem(bookmark.addr)
             address.setWhatsThis("address")
             table.setItem(i, 2, address)
 
-            disasm = QtWidgets.QTableWidgetItem(bookmark.disasm)
+            disasm = QTableWidgetItem(bookmark.disasm)
             disasm.setWhatsThis("disasm")
             table.setItem(i, 3, disasm)
 
-            comment = QtWidgets.QTableWidgetItem(bookmark.comment)
+            comment = QTableWidgetItem(bookmark.comment)
             comment.setWhatsThis("comment")
             table.setItem(i, 4, comment)
 
-        # print_debug("Updating bookmark table: %d rows." % len(bookmarks))
         table.itemChanged.connect(self.on_bookmark_table_cell_edited)
         self.update_column_widths(table)
-
-    def on_trace_table_selection_changed(self):
-        """Callback function for trace table selection change"""
-        self.update_regs_and_mem()
-        self.update_status_bar()
 
     def print(self, text):
         """Prints text to TextEdit on log tab"""
         self.log_text_edit.appendPlainText(str(text))
 
-    def goto_row(self, table, row):
+    def go_to_row(self, table, row):
         """Scrolls a table to the specified row"""
-        table.scrollToItem(table.item(row, 3), QtWidgets.QAbstractItemView.PositionAtCenter)
-
-    def select_row(self, table, row):
-        """Selects a row in a table"""
-        table.clearSelection()
-        item = table.item(row, 0)
-        table.setCurrentItem(
-            item,
-            QtCore.QItemSelectionModel.Select
-            | QtCore.QItemSelectionModel.Rows
-            | QtCore.QItemSelectionModel.Current,
-        )
+        table.scrollToItem(table.item(row, 3), QAbstractItemView.PositionAtCenter)
 
     def ask_user(self, title, question):
         """Shows a messagebox with yes/no question
@@ -751,15 +641,15 @@ class MainWindow(QtWidgets.QMainWindow):
         Returns:
             bool: True if user clicked yes, False otherwise
         """
-        answer = QtWidgets.QMessageBox.question(
+        answer = QMessageBox.question(
             self,
             title,
             question,
-            QtWidgets.QMessageBox.StandardButtons(
-                QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No
+            QMessageBox.StandardButtons(
+                QMessageBox.Yes|QMessageBox.No
             )
         )
-        return bool(answer == QtWidgets.QMessageBox.Yes)
+        return bool(answer == QMessageBox.Yes)
 
     def get_string_from_user(self, title, label):
         """Gets a string from user
@@ -770,10 +660,11 @@ class MainWindow(QtWidgets.QMainWindow):
         Returns:
             string: String given by user, empty string if user pressed cancel
         """
-        answer, ok_pressed = QtWidgets.QInputDialog.getText(self,
+        answer, ok_pressed = QInputDialog.getText(
+            self,
             title,
             label,
-            QtWidgets.QLineEdit.Normal,
+            QLineEdit.Normal,
             ""
         )
         if ok_pressed:
@@ -782,7 +673,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def show_messagebox(self, title, msg):
         """Shows a messagebox"""
-        alert = QtWidgets.QMessageBox()
+        alert = QMessageBox()
         alert.setWindowTitle(title)
         alert.setText(msg)
         alert.exec_()

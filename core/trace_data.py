@@ -37,6 +37,31 @@ class TraceData:
         """
         return self.trace
 
+    def get_regs(self):
+        """Returns dict of registers and their indexes
+
+        Returns:
+            dict: Regs
+        """
+        return self.regs
+
+    def get_regs_and_values(self, row):
+        """Returns dict of registers and their values
+
+        Returns:
+            dict: Register names and values
+        """
+        registers = {}
+        try:
+            reg_values = self.trace[row]["regs"]
+            for reg_name, reg_index in self.regs.items():
+                reg_value = reg_values[reg_index]
+                registers[reg_name] = reg_value
+        except IndexError:
+            print(f"Error. Could not get regs from row {row}.")
+            return {}
+        return registers
+
     def get_reg_index(self, reg_name):
         """Returns a register index
 
@@ -110,7 +135,7 @@ class TraceData:
         """Returns a value of instruction pointer of given row
 
         Args:
-            row: Trace index
+            row: A row index in trace
         Returns:
             int: Address of instruction
         """
@@ -123,12 +148,12 @@ class TraceData:
             print(f"Error. Could not get IP from row {row}")
         return ip
 
-    def set_comment(self, comment, row):
+    def set_comment(self, row, comment):
         """Adds a comment to trace
 
         Args:
+            row (int): Row index in trace
             comment (str): Comment text
-            row (int): Trace index
         """
         try:
             self.trace[row]["comment"] = str(comment)

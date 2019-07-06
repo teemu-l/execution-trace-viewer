@@ -100,7 +100,7 @@ def find(trace, field, keyword, start_row=0, direction=1):
                 return row
 
     else:
-        print("Error in find. Unknown field.")
+        raise ValueError("Unknown field")
 
     return None
 
@@ -112,20 +112,21 @@ def filter_trace(trace, regs, filter_text):
         trace (list): Traced instructions, registers and memory (TraceData.trace)
         filter_text (str): Filter text
         regs (dict): Register names and indexes (TraceData.regs)
+    Raises:
+      ValueError: If unknown keywords or wrong filter format
     Returns:
         List of filtered trace records
     """
     data = trace
     filters = filter_text.split("/")
     if not filters or not data:
-        return []
+        raise ValueError("Empty trace or filter")
     value = ""
 
     for f in filters:
         f_parts = f.split("=")
         if len(f_parts) != 2 or not f_parts[1]:
-            print("Error in filter.")
-            break
+            raise ValueError("Wrong filter format")
         value = f_parts[1]
         if f_parts[0] == "rows":
             rows = value.split("-")
@@ -149,8 +150,7 @@ def filter_trace(trace, regs, filter_text):
                 reg_index = regs[reg]
                 data = list(filter(lambda x: x["regs"][reg_index] == value, data))
             else:
-                print("Error in filter, unknown register.")
-                break
+                raise ValueError(f"Unknown register: {reg}")
         elif f_parts[0] == "regex":
             data = list(filter(lambda x: re.search(value, str(x)) is not None, data))
         elif f_parts[0] == "iregex":
@@ -180,6 +180,5 @@ def filter_trace(trace, regs, filter_text):
             data = list(filter(lambda x: any(k for k in x["mem"] \
                         if k["addr"] == value and k["access"] == "WRITE"), data))
         else:
-            print("Error. Unknown word in filter.")
-            break
+            raise ValueError(f"Unknown word: {f_parts[0]}")
     return data
