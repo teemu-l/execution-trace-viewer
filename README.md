@@ -41,9 +41,12 @@ Traces folder contains one sample trace. It is ~11k lines of obfuscated code (by
 
 ## Plugins
 
-Execution Trace Viewer can be extended by Python3 plugins. Plugins are launched from plugins menu or from right-click menu on trace table.
+Execution Trace Viewer can be extended by Python3 plugins. Plugins are launched from plugins menu or from right-click menu on trace table. Check the example plugins and core/api.py for more info.
 
-Check the example plugins and core/api.py for more info.
+More plugins:
+
+- [Memory trace graph](https://github.com/teemu-l/mem-trace-plugin)
+- your link here?
 
 ## Filters
 
@@ -64,6 +67,7 @@ rows=20-50                |  show only rows 20-50
 regex=0x40?00             |  case-sensitive regex search for whole row (including comment)
 regex=READ                |  show insctructions which read memory
 iregex=junk&#x7c;decrypt  |  inverse regex, rows with 'junk' or 'decrypt' are filtered out
+comment=decrypt           |  filter by comment
 
 It's possible to join multiple filters together:
 
@@ -71,7 +75,7 @@ It's possible to join multiple filters together:
 disasm=xor/reg_any=0x1337 ; show all xor instructions where atleast one register value is 0x1337
 ```
 
-For more complex filtering you can create a filter plugin and save the result list using api.set_filtered_trace(). Then click the filter checkbox to switch between full and filtered trace.
+For more complex filtering you can create a filter plugin and save the result list using api.set_filtered_trace(). Then show the trace by calling api.show_filtered_trace().
 
 ## Find
 
