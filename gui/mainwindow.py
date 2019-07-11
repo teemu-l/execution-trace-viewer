@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import (
     QMainWindow, QAction, QMenu, QFileDialog, QAbstractItemView, QMessageBox,
-    QInputDialog, QLineEdit, QTableWidgetItem
+    QInputDialog, QLineEdit, QTableWidgetItem, QApplication
 )
 from yapsy.PluginManager import PluginManager
 
@@ -80,8 +80,6 @@ class MainWindow(QMainWindow):
         self.trace_table.bookmarkCreated.connect(self.add_bookmark)
         self.trace_table.commentEdited.connect(self.set_comment)
         self.trace_table.printer = self.print
-        self.trace_table.api = self.api
-
 
         # trace pagination
         if prefs.PAGINATION_ENABLED:
@@ -94,9 +92,9 @@ class MainWindow(QMainWindow):
             self.trace_table.pagination = self.trace_pagination
             self.horizontalLayout.setAlignment(self.trace_pagination, Qt.AlignLeft)
 
-        # these are used to remember current pages for both traces
-        self.trace_current_page = 1
-        self.filtered_trace_current_page = 1
+        # these are used to remember current pages & scroll values for both traces
+        self.trace_current_pages = [1, 1]
+        self.trace_scroll_values = [0, 0]
 
         self.reg_table.setColumnCount(len(prefs.REG_LABELS))
         self.reg_table.setHorizontalHeaderLabels(prefs.REG_LABELS)
@@ -274,7 +272,7 @@ class MainWindow(QMainWindow):
                 filter_text
             )
         except Exception as exc:
-            print(f"Error in filter: {exc}")
+            self.show_messagebox("Filter error", f"{exc}")
             # print(traceback.format_exc())
         else:
             self.filtered_trace = filtered_trace
@@ -316,7 +314,7 @@ class MainWindow(QMainWindow):
                 direction=direction,
             )
         except Exception as exc:
-            print(f"Error in find: {str(exc)}")
+            self.show_messagebox("Find error", f"{exc}")
             print(traceback.format_exc())
             self.print(traceback.format_exc())
             return
@@ -520,15 +518,21 @@ class MainWindow(QMainWindow):
     def trace_combo_box_index_changed(self, index):
         """Trace selection combo box index changed"""
         self.trace_table.set_data(self.get_visible_trace())
+
+        other_index = index ^ 1
         if prefs.PAGINATION_ENABLED:
-            # remember current pages
-            if index == 0:
-                self.filtered_trace_current_page = self.trace_pagination.current_page
-                self.trace_pagination.set_current_page(self.trace_current_page, True)
-            elif index == 1:
-                self.trace_current_page = self.trace_pagination.current_page
-                self.trace_pagination.set_current_page(self.filtered_trace_current_page, True)
+            # save current page
+            self.trace_current_pages[other_index] = self.trace_pagination.current_page
+            self.trace_pagination.set_current_page(self.trace_current_pages[index], True)
+
+        # save scrollbar value
+        current_scroll = self.trace_table.verticalScrollBar().value()
+        self.trace_scroll_values[other_index] = current_scroll
+        next_value = self.trace_scroll_values[index]
+
         self.trace_table.update()
+        QApplication.processEvents()    # this is needed to update the scrollbar
+        self.trace_table.verticalScrollBar().setValue(next_value)
 
     def go_to_row_in_visible_trace(self, row):
         """Goes to given row in currently visible trace"""

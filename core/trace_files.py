@@ -18,13 +18,13 @@ def open_trace(filename):
             magic = f.read(4)
     except IOError:
         print("Error, could not open file.")
-        return None
-    # else:
-    if magic == b"TRAC":
-        return open_x64dbg_trace(filename)
-    if magic == b"TVTR":
-        return open_tv_trace(filename)
-    return open_json_trace(filename)
+    else:
+        if magic == b"TRAC":
+            return open_x64dbg_trace(filename)
+        elif magic == b"TVTR":
+            return open_tv_trace(filename)
+        return open_json_trace(filename)
+    return None
 
 
 def open_tv_trace(filename):
@@ -49,8 +49,8 @@ def open_tv_trace(filename):
         json_blob = f.read(json_length)
         json_str = str(json_blob, "utf-8")
         file_info = json.loads(json_str)
-        arch = file_info["arch"]
-        trace_data.arch = arch
+
+        arch = file_info.get("arch", "")
 
         reg_indexes = {}
         if arch == "x64":
@@ -58,24 +58,29 @@ def open_tv_trace(filename):
             for i, reg in enumerate(regs):
                 reg_indexes[reg] = i
             pointer_size = 8  # qword
+            ip_reg = "rip"
         elif arch == "x86":
             regs = prefs.X32_REGS
             for i, reg in enumerate(regs):
                 reg_indexes[reg] = i
             pointer_size = 4  # dword
+            ip_reg = "eip"
         else:
-            print("Unknown CPU architecture. Trying to load it anyway...")
+            print(f"Unknown CPU arch: {arch} Let's try to load it anyway.")
+            ip_reg = file_info.get("ip_reg", "")
+            pointer_size = file_info.get("pointer_size", 4)
 
         if "regs" in file_info:
             reg_indexes = {}
-            regs = file_info["regs"]
-            for i, reg in enumerate(regs):
+            for i, reg in enumerate(file_info["regs"]):
                 reg_indexes[reg] = i
 
-        if "pointer_size" in file_info:
-            pointer_size = file_info["pointer_size"]
+        trace_data.arch = arch
+        trace_data.ip_reg = ip_reg
+        trace_data.regs = reg_indexes
+        trace_data.pointer_size = pointer_size
 
-        reg_data = [None] * len(reg_indexes)
+        reg_values = [None] * len(reg_indexes)
         trace = []
         row_id = 0
         while f.peek(1)[:1] == b"\x00":
@@ -131,7 +136,7 @@ def open_tv_trace(filename):
             for i, change_pos in enumerate(register_change_position):
                 reg_id += change_pos
                 if reg_id + i < len(reg_indexes):
-                    reg_data[reg_id + i] = register_change_new_data[i]
+                    reg_values[reg_id + i] = register_change_new_data[i]
 
             mems = []
             mem = {}
@@ -148,15 +153,16 @@ def open_tv_trace(filename):
 
             trace_row = {}
             trace_row["id"] = row_id
+            if ip_reg:
+                trace_row["ip"] = reg_values[reg_indexes[ip_reg]]
             trace_row["disasm"] = disasm
             trace_row["comment"] = comment
-            trace_row["regs"] = reg_data.copy()
+            trace_row["regs"] = reg_values.copy()
             trace_row["opcodes"] = opcodes.hex()
             trace_row["mem"] = mems.copy()
             trace.append(trace_row)
             row_id += 1
 
-        trace_data.regs = reg_indexes
         trace_data.trace = trace
 
         while f.peek(1)[:1] == b"\x01":
@@ -193,13 +199,13 @@ def open_json_trace(filename):
                 trace_data.bookmarks = []
                 trace_data.filename = filename
                 trace_data.trace = data["trace"]
-                if "arch" in data:
-                    trace_data.arch = data["arch"]
+                trace_data.arch = data.get("arch", "")
+                trace_data.ip_reg = data.get("ip_reg", "")
+                trace_data.pointer_size = data.get("pointer_size", 4)
+                trace_data.regs = data.get("regs", {})
                 if "bookmarks" in data:
                     for bookmark in data["bookmarks"]:
                         trace_data.add_bookmark(Bookmark(**bookmark))
-                if "regs" in data:
-                    trace_data.regs = data["regs"]
                 return trace_data
             except KeyError:
                 print("Error while reading trace file.")
@@ -219,6 +225,8 @@ def save_as_json(trace_data, filename):
     data = {
         "arch": trace_data.arch,
         "regs": trace_data.regs,
+        "ip_reg": trace_data.ip_reg,
+        "pointer_size": trace_data.pointer_size,
         "trace": trace_data.trace,
         "bookmarks": [vars(h) for h in trace_data.bookmarks],
     }
@@ -242,11 +250,16 @@ def save_as_tv_trace(trace_data, filename):
             trace = trace_data.trace
             f.write(b"TVTR")
             file_info = {"arch": trace_data.arch, "version": "1.0"}
-            pointer_size = 4
-            if trace_data.arch == "x64":
+            if trace_data.pointer_size:
+                pointer_size = trace_data.pointer_size
+            elif trace_data.arch == "x64":
                 pointer_size = 8
-            file_info['pointer_size'] = pointer_size
-            file_info['regs'] = list(trace_data.regs.keys())
+            else:
+                pointer_size = 4
+
+            file_info["pointer_size"] = pointer_size
+            file_info["regs"] = list(trace_data.regs.keys())
+            file_info["ip_reg"] = trace_data.ip_reg
 
             json_blob = json.dumps(file_info)
             json_blob_length = len(json_blob)
@@ -358,26 +371,29 @@ def open_x64dbg_trace(filename):
         json_blob = f.read(json_length)
         json_str = str(json_blob, "utf-8")
         arch = json.loads(json_str)["arch"]
-        trace_data.arch = arch
 
         reg_indexes = {}
         if arch == "x64":
             regs = prefs.X64_REGS
-            for i, reg in enumerate(regs):
-                reg_indexes[reg] = i
             ip_reg = "rip"
             capstone_mode = CS_MODE_64
             pointer_size = 8  # qword
         else:
             regs = prefs.X32_REGS
-            for i, reg in enumerate(regs):
-                reg_indexes[reg] = i
             ip_reg = "eip"
             capstone_mode = CS_MODE_32
             pointer_size = 4  # dword
 
+        for i, reg in enumerate(regs):
+            reg_indexes[reg] = i
+
+        trace_data.arch = arch
+        trace_data.ip_reg = ip_reg
+        trace_data.regs = reg_indexes
+        trace_data.pointer_size = pointer_size
+
         md = Cs(CS_ARCH_X86, capstone_mode)
-        reg_data = [None] * len(reg_indexes)
+        reg_values = [None] * len(reg_indexes)
         trace = []
         row_id = 0
         while f.read(1) == b"\x00":
@@ -429,10 +445,10 @@ def open_x64dbg_trace(filename):
             for i, change in enumerate(register_change_position):
                 reg_id += change
                 if reg_id + i < len(reg_indexes):
-                    reg_data[reg_id + i] = register_change_new_data[i]
+                    reg_values[reg_id + i] = register_change_new_data[i]
 
             # disassemble
-            ip_value = reg_data[reg_indexes[ip_reg]]
+            ip_value = reg_values[reg_indexes[ip_reg]]
             for (_address, _size, mnemonic, op_str) in md.disasm_lite(
                     opcodes, ip_value
             ):
@@ -473,14 +489,14 @@ def open_x64dbg_trace(filename):
 
             trace_row = {}
             trace_row["id"] = row_id
+            trace_row["ip"] = ip_value
             trace_row["disasm"] = disasm
-            trace_row["regs"] = reg_data.copy()
+            trace_row["regs"] = reg_values.copy()
             trace_row["opcodes"] = opcodes.hex()
             trace_row["mem"] = mems.copy()
             trace_row["comment"] = ""
             trace.append(trace_row)
             row_id += 1
 
-        trace_data.regs = reg_indexes
         trace_data.trace = trace
         return trace_data

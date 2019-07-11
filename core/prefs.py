@@ -28,7 +28,7 @@ SAMPLE_FILTERS = [
     "comment=decrypt"
 ]
 
-FIND_FIELDS = ["Disasm", "Regs", "Memory a/v", "Mem address", "Mem value", "Comment", "Any"]
+FIND_FIELDS = ["Disasm", "Regs", "Mem (any field)", "Mem address", "Mem value", "Comment", "Any"]
 
 # columns for tables
 TRACE_LABELS = ["#", "address", "opcodes", "disasm", "comment"]

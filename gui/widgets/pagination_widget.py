@@ -95,7 +95,7 @@ class PaginationWidget(QWidget):
 
         self.current_page = page
         self.page_edit.setText(str(page))
-        self.set_status_text(f"{page} of {self.page_count} pages")
+        self.update_status_text()
         if not block_signals:
             self.pageChanged.emit(page)
 

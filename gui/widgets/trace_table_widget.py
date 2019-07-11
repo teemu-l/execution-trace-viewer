@@ -150,21 +150,19 @@ class TraceTableWidget(QTableWidget):
         if row_count == 0:
             return
 
-        ip_name = self.api.get_trace_data().get_instruction_pointer_name()
-        if ip_name:
-            ip_reg_index = self.api.get_regs()[ip_name]
-
         for i in range(0, row_count):
             row_id = str(trace[i]["id"])
-            if ip_name:
-                address = trace[i]["regs"][ip_reg_index]
-                self.setItem(i, 1, QTableWidgetItem(hex(address)))
+            address = trace[i].get("ip")
             opcodes = trace[i]["opcodes"]
             disasm = trace[i]["disasm"]
             comment = str(trace[i]["comment"])
             comment_item = QTableWidgetItem(comment)
             comment_item.setWhatsThis("comment")
-            self.setItem(i, 0, QTableWidgetItem(row_id))
+            row_id_item = QTableWidgetItem(row_id)
+            row_id_item.setFlags(row_id_item.flags() & ~Qt.ItemIsEditable)
+            self.setItem(i, 0, row_id_item)
+            if address is not None:
+                self.setItem(i, 1, QTableWidgetItem(hex(address)))
             self.setItem(i, 2, QTableWidgetItem(opcodes))
             self.setItem(i, 3, QTableWidgetItem(disasm))
             self.setItem(i, 4, comment_item)
@@ -173,8 +171,9 @@ class TraceTableWidget(QTableWidget):
 
     def update_column_widths(self):
         """Updates column widths of a TableWidget to match the content"""
-        self.setVisible(False)  # fix ui glitch with column widths
+        self.setVisible(False)          # fix ui glitch with column widths
         self.resizeColumnsToContents()
+        self.setColumnWidth(0, 64)      # make id column wider
         self.horizontalHeader().setStretchLastSection(True)
         self.setVisible(True)
 

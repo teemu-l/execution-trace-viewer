@@ -9,7 +9,8 @@ class TraceData:
     Attributes:
         filename (str): A trace file name.
         arch (str): CPU architecture.
-        ip_name (str): Instruction pointer name
+        ip_reg (str): Name of instruction pointer register
+        pointer_size (int): Pointer size (4 in x86, 8 in x64)
         regs (dict): Register names and indexes
         trace (list): A list of traced instructions, registers and memory accesses.
         bookmarks (list): A list of bookmarks.
@@ -19,7 +20,8 @@ class TraceData:
         """Inits TraceData."""
         self.filename = ""
         self.arch = ""
-        self.ip_name = ""
+        self.ip_reg = ""
+        self.pointer_size = 0
         self.regs = {}
         self.trace = []
         self.bookmarks = []
@@ -117,19 +119,17 @@ class TraceData:
         Returns:
             str: Instruction pointer name
         """
-        if self.ip_name:
-            return self.ip_name
-        ip_name = ""
-        try:
-            if "eip" in self.regs:
-                ip_name = "eip"
-            elif "rip" in self.regs:
-                ip_name = "rip"
-            elif "ip" in self.regs:
-                ip_name = "ip"
-        except IndexError:
-            print("Error. Could not get IP name")
-        return ip_name
+        if self.ip_reg:
+            return self.ip_reg
+        elif "eip" in self.regs:
+            return "eip"
+        elif "rip" in self.regs:
+            return "rip"
+        elif "ip" in self.regs:
+            return "ip"
+        elif "pc" in self.regs:
+            return "pc"
+        return ""
 
     def get_instruction_pointer(self, row):
         """Returns a value of instruction pointer of given row
@@ -140,9 +140,9 @@ class TraceData:
             int: Address of instruction
         """
         ip = 0
+        ip_reg = self.get_instruction_pointer_name()
         try:
-            ip_name = self.get_instruction_pointer_name()
-            reg_index = self.regs[ip_name]
+            reg_index = self.regs[ip_reg]
             ip = self.trace[row]["regs"][reg_index]
         except IndexError:
             print(f"Error. Could not get IP from row {row}")
