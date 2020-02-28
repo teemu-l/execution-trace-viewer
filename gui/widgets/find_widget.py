@@ -1,5 +1,10 @@
 from PyQt5.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QPushButton, QLineEdit, QComboBox
+    QWidget,
+    QHBoxLayout,
+    QLabel,
+    QToolButton,
+    QLineEdit,
+    QComboBox,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 
@@ -22,7 +27,7 @@ class FindWidget(QWidget):
         layout.addWidget(self.find_label)
 
         self.find_combo_box = QComboBox()
-        self.find_combo_box.setMaximumSize(100, 24)
+        self.find_combo_box.setMaximumSize(105, 24)
         layout.addWidget(self.find_combo_box)
 
         self.find_edit = QLineEdit()
@@ -32,16 +37,16 @@ class FindWidget(QWidget):
         )
         layout.addWidget(self.find_edit)
 
-        self.prev_btn = QPushButton("prev", self)
+        self.prev_btn = QToolButton(self)
         self.prev_btn.clicked.connect(lambda: self.on_find_btn_clicked(-1))
-        self.prev_btn.setMinimumSize(40, 24)
-        self.prev_btn.setMaximumSize(40, 24)
+        self.prev_btn.setArrowType(Qt.UpArrow)
+        self.prev_btn.setToolTip("Find previous")
         layout.addWidget(self.prev_btn)
 
-        self.next_btn = QPushButton("next", self)
+        self.next_btn = QToolButton(self)
         self.next_btn.clicked.connect(lambda: self.on_find_btn_clicked(1))
-        self.next_btn.setMinimumSize(40, 24)
-        self.next_btn.setMaximumSize(40, 24)
+        self.next_btn.setArrowType(Qt.DownArrow)
+        self.next_btn.setToolTip("Find next")
         layout.addWidget(self.next_btn)
 
         layout.setAlignment(Qt.AlignLeft)
