@@ -7,8 +7,16 @@ from PyQt5 import uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import (
-    QMainWindow, QAction, QMenu, QFileDialog, QAbstractItemView, QMessageBox,
-    QInputDialog, QLineEdit, QTableWidgetItem, QApplication
+    QMainWindow,
+    QAction,
+    QMenu,
+    QFileDialog,
+    QAbstractItemView,
+    QMessageBox,
+    QInputDialog,
+    QLineEdit,
+    QTableWidgetItem,
+    QApplication,
 )
 from yapsy.PluginManager import PluginManager
 
@@ -17,7 +25,7 @@ from core import trace_files
 from core.filter_and_find import find
 from core.filter_and_find import filter_trace
 from core.filter_and_find import TraceField
-from core.syntax import AsmHighlighter
+from gui.syntax_hl.syntax_hl_log import AsmHighlighter
 from core.api import Api
 from core import prefs
 from gui.widgets.pagination_widget import PaginationWidget
@@ -32,6 +40,7 @@ class MainWindow(QMainWindow):
         trace_data (TraceData): TraceData object
         filtered_trace (list): Filtered trace
     """
+
     def __init__(self, parent=None):
         """Inits MainWindow, UI and plugins"""
         super(MainWindow, self).__init__(parent)
@@ -73,13 +82,19 @@ class MainWindow(QMainWindow):
         self.splitter2.setSizes([600, 100])
 
         # Init trace table
-        self.trace_table.rowChanged.connect(self.on_trace_table_row_changed)
+        self.trace_table.itemSelectionChanged.connect(self.on_trace_table_row_changed)
         self.trace_table.setColumnCount(len(prefs.TRACE_LABELS))
         self.trace_table.setHorizontalHeaderLabels(prefs.TRACE_LABELS)
         self.trace_table.horizontalHeader().setStretchLastSection(True)
         self.trace_table.bookmarkCreated.connect(self.add_bookmark)
         self.trace_table.commentEdited.connect(self.set_comment)
         self.trace_table.printer = self.print
+
+        if prefs.USE_SYNTAX_HIGHLIGHT_IN_TRACE:
+            dark_text = False
+            if not prefs.USE_DARK_THEME:
+                dark_text = True
+            self.trace_table.init_syntax_highlight(dark_text)
 
         # trace pagination
         if prefs.PAGINATION_ENABLED:
@@ -176,7 +191,7 @@ class MainWindow(QMainWindow):
         about_menu = self.menu_bar.addMenu("&About")
         about_menu.addAction(about_action)
 
-        if prefs.USE_SYNTAX_HIGHLIGHT:
+        if prefs.USE_SYNTAX_HIGHLIGHT_IN_LOG:
             self.highlight = AsmHighlighter(self.log_text_edit.document())
 
         # trace select
@@ -250,26 +265,31 @@ class MainWindow(QMainWindow):
         self.init_trace_table_menu()
         self.init_plugins_menu()
 
-    def on_trace_table_row_changed(self, row_id):
+    def on_trace_table_row_changed(self):
+        """Called when selected row changes"""
+        selected_row_ids = self.get_selected_row_ids(self.trace_table)
+        if not selected_row_ids:
+            return
+        row_id = selected_row_ids[0]
         regs = self.trace_data.get_regs_and_values(row_id)
         modified_regs = []
         if prefs.HIGHLIGHT_MODIFIED_REGS:
             modified_regs = self.trace_data.get_modified_regs(row_id)
         self.reg_table.set_data(regs, modified_regs)
         mem = []
-        if 'mem' in self.trace_data.trace[row_id]:
+        if "mem" in self.trace_data.trace[row_id]:
             mem = self.trace_data.trace[row_id]["mem"]
         self.mem_table.set_data(mem)
         self.update_status_bar()
 
-    def on_filter_btn_clicked(self, filter_text):
+    def on_filter_btn_clicked(self, filter_text: str):
         if self.trace_data is None:
             return
         try:
             filtered_trace = filter_trace(
-                self.trace_data.trace, # get_visible_trace(),
+                self.trace_data.trace,  # get_visible_trace(),
                 self.trace_data.get_regs(),
-                filter_text
+                filter_text,
             )
         except Exception as exc:
             self.show_messagebox("Filter error", f"{exc}")
@@ -278,7 +298,7 @@ class MainWindow(QMainWindow):
             self.filtered_trace = filtered_trace
             self.show_filtered_trace()
 
-    def on_find_btn_clicked(self, keyword, field_index, direction):
+    def on_find_btn_clicked(self, keyword: str, field_index: int, direction: int):
         """Find next or prev button clicked"""
         current_row = self.trace_table.currentRow()
         if current_row < 0:
@@ -382,7 +402,7 @@ class MainWindow(QMainWindow):
             self.print("Error in plugin:")
             self.print(traceback.format_exc())
         finally:
-            if prefs.USE_SYNTAX_HIGHLIGHT:
+            if prefs.USE_SYNTAX_HIGHLIGHT_IN_LOG:
                 self.highlight.rehighlight()
 
     def show_filtered_trace(self):
@@ -512,7 +532,7 @@ class MainWindow(QMainWindow):
             row_ids_list = [int(i) for i in row_ids_set]
         except ValueError:
             print_debug("Error. Values in the first column must be integers.")
-            return None
+            return []
         return sorted(row_ids_list)
 
     def trace_combo_box_index_changed(self, index):
@@ -523,7 +543,9 @@ class MainWindow(QMainWindow):
         if prefs.PAGINATION_ENABLED:
             # save current page
             self.trace_current_pages[other_index] = self.trace_pagination.current_page
-            self.trace_pagination.set_current_page(self.trace_current_pages[index], True)
+            self.trace_pagination.set_current_page(
+                self.trace_current_pages[index], True
+            )
 
         # save scrollbar value
         current_scroll = self.trace_table.verticalScrollBar().value()
@@ -531,7 +553,7 @@ class MainWindow(QMainWindow):
         next_value = self.trace_scroll_values[index]
 
         self.trace_table.update()
-        QApplication.processEvents()    # this is needed to update the scrollbar
+        QApplication.processEvents()  # this is needed to update the scrollbar
         self.trace_table.verticalScrollBar().setValue(next_value)
 
     def go_to_row_in_visible_trace(self, row):
@@ -649,9 +671,7 @@ class MainWindow(QMainWindow):
             self,
             title,
             question,
-            QMessageBox.StandardButtons(
-                QMessageBox.Yes|QMessageBox.No
-            )
+            QMessageBox.StandardButtons(QMessageBox.Yes | QMessageBox.No),
         )
         return bool(answer == QMessageBox.Yes)
 
@@ -665,11 +685,7 @@ class MainWindow(QMainWindow):
             string: String given by user, empty string if user pressed cancel
         """
         answer, ok_pressed = QInputDialog.getText(
-            self,
-            title,
-            label,
-            QLineEdit.Normal,
-            ""
+            self, title, label, QLineEdit.Normal, ""
         )
         if ok_pressed:
             return answer

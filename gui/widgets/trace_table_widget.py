@@ -3,11 +3,11 @@ from PyQt5.QtCore import pyqtSignal, Qt, QItemSelectionModel
 from PyQt5.QtGui import QCursor
 
 from core.bookmark import Bookmark
+from gui.syntax_hl.syntax_hl_trace import SyntaxHighlightDelegate
 
 
 class TraceTableWidget(QTableWidget):
 
-    rowChanged = pyqtSignal(int)
     bookmarkCreated = pyqtSignal(Bookmark)
     commentEdited = pyqtSignal(int, str)
 
@@ -21,18 +21,14 @@ class TraceTableWidget(QTableWidget):
 
     def init_ui(self):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(
-            self.custom_context_menu_requested
-        )
+        self.customContextMenuRequested.connect(self.custom_context_menu_requested)
         self.itemChanged.connect(self.item_changed)
 
-    def selectionChanged(self, selected, deselected):
-        """Method reimplementation for QTableWidget selection change"""
-        row_ids = self.get_selected_row_ids()
-        if row_ids:
-            row_id = row_ids[0]
-            self.rowChanged.emit(row_id)
-        super(TraceTableWidget, self).selectionChanged(selected, deselected)
+    def init_syntax_highlight(self, use_darker_text_color=False):
+        self.delegate = SyntaxHighlightDelegate(
+            self, use_darker_text_color=use_darker_text_color
+        )
+        self.setItemDelegate(self.delegate)
 
     def create_bookmark(self):
         """Create a bookmark from selected rows"""
@@ -53,7 +49,7 @@ class TraceTableWidget(QTableWidget):
             endrow=last_row_id,
             addr=addr,
             disasm=disasm,
-            comment=comment
+            comment=comment,
         )
         self.bookmarkCreated.emit(bookmark)
 
@@ -79,7 +75,7 @@ class TraceTableWidget(QTableWidget):
             return None
         return sorted(row_ids_list)
 
-    def go_to_row(self, row):
+    def go_to_row(self, row: int):
         if self.pagination is not None:
             page = int(row / self.pagination.rows_per_page) + 1
             row = row % self.pagination.rows_per_page
@@ -89,6 +85,7 @@ class TraceTableWidget(QTableWidget):
         self.select_row(row)
 
     def item_changed(self, item):
+        """Called when user edits a cell"""
         cell_type = item.whatsThis()
         if cell_type == "comment":
             row = self.currentRow()
@@ -111,7 +108,7 @@ class TraceTableWidget(QTableWidget):
         for item in items:
             self.printer(item.text())
 
-    def select_row(self, row):
+    def select_row(self, row: int):
         """Selects a row in a table"""
         self.clearSelection()
         item = self.item(row, 0)
@@ -122,7 +119,7 @@ class TraceTableWidget(QTableWidget):
             | QItemSelectionModel.Current,
         )
 
-    def set_data(self, data):
+    def set_data(self, data: list):
         self.trace = data
         if self.pagination is not None:
             self.update_pagination()
@@ -143,7 +140,7 @@ class TraceTableWidget(QTableWidget):
             self.update_pagination()
             page = self.pagination.current_page
             per_page = self.pagination.rows_per_page
-            trace = trace[(page-1)*per_page:page*per_page]
+            trace = trace[(page - 1) * per_page : page * per_page]
 
         row_count = len(trace)
         self.setRowCount(row_count)
@@ -156,10 +153,12 @@ class TraceTableWidget(QTableWidget):
             opcodes = trace[i]["opcodes"]
             disasm = trace[i]["disasm"]
             comment = str(trace[i]["comment"])
+
             comment_item = QTableWidgetItem(comment)
             comment_item.setWhatsThis("comment")
             row_id_item = QTableWidgetItem(row_id)
             row_id_item.setFlags(row_id_item.flags() & ~Qt.ItemIsEditable)
+
             self.setItem(i, 0, row_id_item)
             if address is not None:
                 self.setItem(i, 1, QTableWidgetItem(hex(address)))
@@ -171,9 +170,9 @@ class TraceTableWidget(QTableWidget):
 
     def update_column_widths(self):
         """Updates column widths of a TableWidget to match the content"""
-        self.setVisible(False)          # fix ui glitch with column widths
+        self.setVisible(False)  # fix ui glitch with column widths
         self.resizeColumnsToContents()
-        self.setColumnWidth(0, 64)      # make id column wider
+        self.setColumnWidth(0, 64)  # make id column wider
         self.horizontalHeader().setStretchLastSection(True)
         self.setVisible(True)
 
