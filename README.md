@@ -37,7 +37,7 @@ Following file formats are supported:
 
 - json - Traces can be saved and loaded from json text files.
 
-Traces folder contains one sample trace. It is ~11k lines of obfuscated code (by VMProtect3). All the handlers are disassembled and added to bookmarks.
+Traces folder contains one sample trace. It is ~11k lines of obfuscated code (by VMProtect3). All the handlers are disassembled and added to bookmarks table.
 
 ## Plugins
 
@@ -46,6 +46,7 @@ Execution Trace Viewer can be extended by Python3 plugins. Plugins are launched 
 More plugins:
 
 - [Memory trace graph](https://github.com/teemu-l/mem-trace-plugin)
+- [Data visualizer](https://github.com/teemu-l/dataviz-plugin)
 - your link here?
 
 ## Filters
@@ -113,7 +114,6 @@ USE_DARK_THEME = False
 
 - add support for more trace formats & architectures
 - fix x64dbg trace problem: if memory content doesn't change on write operation, the access is shown as 'READ' (bad design of the file format?)
-- fix tooltip size (bug in QDarkStylesheet?)
 - documentation
 
 ## License
@@ -122,10 +122,10 @@ MIT
 
 ## Author
 
-Execution Trace Viewer was developed by Teemu Laurila.
+Developed by Teemu Laurila.
 
 Contact:
 
 ```python
-''.join(map(chr,[k^86 for k in [34,51,51,59,35,58,55,22,38,36,57,34,57,56,59,55,63,58,120,53,57,59]]))
+print(''.join(map(chr,[k^86 for k in [34,51,51,59,35,58,55,22,38,36,57,34,57,56,59,55,63,58,120,53,57,59]])))
 ```
