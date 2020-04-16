@@ -15,7 +15,7 @@ from PyQt5.QtGui import (
 
 
 SYNTAX_COLORS_X86 = [
-    {"startswith": ("0x",), "color": QColor("#f16a4e")},
+    {"startswith": ("0x", "-0x",), "color": QColor("#f16a4e")},
     {"words": ("byte", "word", "dword", "qword", "ptr",), "color": QColor("#a25500")},
     {"startswith": ("pop", "push",), "color": QColor("#ff40ff"),},
     {"startswith": ("cmp",), "words": ("test", "bt",), "color": QColor("#32c435")},
@@ -117,7 +117,13 @@ class SyntaxHighlightDelegate(QStyledItemDelegate):
                     color = color.darker()
                 char_format.setForeground(color)
                 cursor.mergeCharFormat(char_format)
-            cursor.movePosition(QTextCursor.NextWord)
+            self.move_to_next_word(self.doc, cursor)
+
+    def move_to_next_word(self, doc, cursor):
+        while not cursor.isNull() and not cursor.atEnd():
+            if doc.characterAt(cursor.position()) not in (" ", ",", "+", "[", "]"):
+                return
+            cursor.movePosition(QTextCursor.NextCharacter)
 
     def get_color(self, word_to_check: str):
         for syntax in self.syntax_colors:
