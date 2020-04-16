@@ -226,17 +226,22 @@ class MainWindow(QMainWindow):
     def init_plugins_menu(self):
         """Inits plugins menu"""
         self.plugins_topmenu.clear()
+
         reload_action = QAction("Reload plugins", self)
+        reload_action.setShortcut("Ctrl+R")
         func = functools.partial(self.reload_plugins)
         reload_action.triggered.connect(func)
         self.plugins_topmenu.addAction(reload_action)
         self.plugins_topmenu.addSeparator()
 
+        plugins_menu = QMenu("Run plugin", self)
+
         for plugin in self.manager.getAllPlugins():
             action = QAction(plugin.name, self)
             func = functools.partial(self.execute_plugin, plugin)
             action.triggered.connect(func)
-            self.plugins_topmenu.addAction(action)
+            plugins_menu.addAction(action)
+        self.plugins_topmenu.addMenu(plugins_menu)
 
     def init_trace_table_menu(self):
         """Initializes right click menu for trace table"""
