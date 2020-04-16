@@ -1,41 +1,62 @@
-"""This plugin demonstrates how to filter trace by memory range.
-Every row which accesses memory between addr and addr+size
-is added to filtered_trace.
+"""This plugin filters a trace by addresses in memory accesses.
+Every row which accesses memory in given range is added to filtered_trace.
 """
 
 from yapsy.IPlugin import IPlugin
 from core.api import Api
 
-class PluginFilterByMemAddress(IPlugin):
 
+class PluginFilterByMemAddress(IPlugin):
     def execute(self, api: Api):
 
-        addr_and_size = api.get_values_from_user(
-            "Filter by memory address",
-            "Give me memory address and size, separated by comma:"
-        )
+        input_dlg_data = [
+            {"label": "Memory address", "data": "0x0"},
+            {"label": "Size", "data": 2000},
+            {"label": "Access types", "data": ["Reads and writes", "Reads", "Writes"]},
+            {"label": "Source trace", "data": ["Full trace", "Filtered trace"]},
+        ]
+        options = api.get_values_from_user("Filter by memory address", input_dlg_data)
 
-        if not addr_and_size or len(addr_and_size) != 2:
-            print('Error. Wrong values given')
+        if not options:
             return
 
-        addr, size = addr_and_size
+        addr, size, access_types, trace_id = options
+        addr = self.str_to_int(addr)
 
-        api.print(f"Filtering by mem access addr: from {hex(addr)} to {hex(addr+size)}")
+        print(f"Filtering by mem address: from {hex(addr)} to {hex(addr+size)}")
 
-        trace = api.get_visible_trace()
-        filtered_trace = []
+        if trace_id == 0:
+            trace = api.get_full_trace()
+        else:
+            trace = api.get_filtered_trace()
+
+        result_trace = []
 
         for t in trace:
-            for mem in t['mem']:
-                if addr <= mem['addr'] <= (addr + size):
-                    filtered_trace.append(t.copy())
+            for mem in t["mem"]:
+                if mem["access"].upper() == "READ" and access_types == 2:
                     continue
+                elif mem["access"].upper() == "WRITE" and access_types == 1:
+                    continue
+                if addr <= mem["addr"] <= (addr + size):
+                    result_trace.append(t.copy())
+                    break  # avoid adding the same row more than once
 
-        trace_len = len(filtered_trace)
-        if trace_len > 0:
-            api.print(f"Length of filtered trace: {trace_len}") 
-            api.set_filtered_trace(filtered_trace)
+        if len(result_trace) > 0:
+            print(f"Length of filtered trace: {len(result_trace)}")
+            api.set_filtered_trace(result_trace)
             api.show_filtered_trace()
         else:
-            api.print("Filter plugin resulted in empty trace")
+            api.show_messagebox(
+                "Error", "Could not find any rows accessing given memory area"
+            )
+
+    def str_to_int(self, s: str):
+        result = 0
+        if s:
+            s = s.strip()
+            if "0x" in s:
+                result = int(s, 16)
+            else:
+                result = int(s)
+        return result

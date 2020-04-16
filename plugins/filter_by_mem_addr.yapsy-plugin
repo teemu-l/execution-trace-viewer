@@ -6,4 +6,4 @@ Module = filter_by_mem_addr
 Author = Teemu
 Version = 0.1
 Website = https://github.com/teemu-l/execution-trace-viewer
-Description = Filter by mem access address
+Description = Filter trace by memory access address
