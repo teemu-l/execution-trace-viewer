@@ -25,12 +25,13 @@ from core import trace_files
 from core.filter_and_find import find
 from core.filter_and_find import filter_trace
 from core.filter_and_find import TraceField
-from gui.syntax_hl.syntax_hl_log import AsmHighlighter
 from core.api import Api
 from core import prefs
+from gui.syntax_hl.syntax_hl_log import AsmHighlighter
 from gui.widgets.pagination_widget import PaginationWidget
 from gui.widgets.find_widget import FindWidget
 from gui.widgets.filter_widget import FilterWidget
+from gui.input_dialog import InputDialog
 
 
 class MainWindow(QMainWindow):
@@ -682,14 +683,28 @@ class MainWindow(QMainWindow):
             title (str): Input dialog title
             label (str): Input dialog label
         Returns:
-            string: String given by user, empty string if user pressed cancel
+            string: String given by user, empty string if user clicked cancel
         """
-        answer, ok_pressed = QInputDialog.getText(
+        answer, ok_clicked = QInputDialog.getText(
             self, title, label, QLineEdit.Normal, ""
         )
-        if ok_pressed:
+        if ok_clicked:
             return answer
         return ""
+
+    def get_values_from_user(self, title, data, on_ok_clicked=None):
+        """Gets values from user
+
+        Args:
+            title (str): Input dialog title
+            data (list): List of dicts
+            on_ok_clicked (method): Callback function to e.g. check the input
+        Returns:
+            list: List of values given by user, empty list if user canceled
+        """
+        input_dlg = InputDialog(self, title, data, on_ok_clicked)
+        input_dlg.exec_()
+        return input_dlg.get_data()
 
     def show_messagebox(self, title, msg):
         """Shows a messagebox"""

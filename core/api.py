@@ -1,25 +1,25 @@
-
 class Api:
     """Api class for plugins
 
     Attributes:
         main_window (MainWindow): MainWindow object
     """
+
     def __init__(self, main_window):
         """Inits Api."""
         self.main_window = main_window
 
     def add_bookmark(self, bookmark, replace=False):
-        """Adds a new bookmark
+        """Adds a new bookmark to bookmark table
 
         Args:
             new_bookmark (Bookmark): A new bookmark
             replace (bool): Replace an existing bookmark if found on same row?
                 Defaults to False.
         """
-        return self.main_window.trace_data.add_bookmark(bookmark, replace)
+        self.main_window.trace_data.add_bookmark(bookmark, replace)
 
-    def ask_user(self, title, question):
+    def ask_user(self, title: str, question: str):
         """Shows a messagebox with yes/no question
 
         Args:
@@ -50,7 +50,7 @@ class Api:
         """Returns main_window object"""
         return self.main_window
 
-    def get_string_from_user(self, title, label):
+    def get_string_from_user(self, title: str, label: str):
         """Get string from user.
 
         Args:
@@ -61,28 +61,17 @@ class Api:
         """
         return self.main_window.get_string_from_user(title, label)
 
-    def get_values_from_user(self, title, label):
-        """Get integer values from user. Values must be separated by comma.
-        If any value starts with '0x', it is converted from hex to decimal.
+    def get_values_from_user(self, title: str, data: list, on_ok_clicked=None):
+        """Get input from user. Data types: str, int, list, bool.
 
         Args:
             title (str): Input dialog title
-            label (str): Input dialog label
+            data (list): List of dicts describing labels and data
+            on_ok_clicked (method): Callback function to e.g. check the input
         Returns:
-            list: List of integers
+            list: List of values, empty list if canceled
         """
-        values_str = self.main_window.get_string_from_user(
-            title, label
-        )
-        values = []
-        if values_str:
-            for value in values_str.split(","):
-                value = value.strip()
-                if "0x" in value:
-                    values.append(int(value, 16))
-                else:
-                    values.append(int(value))
-        return values
+        return self.main_window.get_values_from_user(title, data, on_ok_clicked)
 
     def get_selected_bookmarks(self):
         """Returns list of selected bookmarks"""
@@ -111,7 +100,7 @@ class Api:
         """Returns dictionary of registers and their indexes"""
         return self.main_window.trace_data.get_regs()
 
-    def go_to_trace_row(self, row_id):
+    def go_to_row_in_full_trace(self, row_id: int):
         """Goes to given row in full trace
 
         Args:
@@ -119,7 +108,15 @@ class Api:
         """
         self.main_window.go_to_row_in_full_trace(row_id)
 
-    def print(self, text):
+    def go_to_row_in_current_trace(self, row_index: int):
+        """Goes to given row index in currently visible trace (full or filtered)
+
+        Args:
+            row_index (int): Row index in trace
+        """
+        self.main_window.go_to_row_in_visible_trace(row_index)
+
+    def print(self, text: str):
         """Prints text to log
 
         Args:
@@ -127,7 +124,7 @@ class Api:
         """
         self.main_window.print(str(text))
 
-    def set_comment(self, row, comment):
+    def set_comment(self, row: int, comment: str):
         """Sets a comment to trace
 
         Args:
@@ -151,7 +148,7 @@ class Api:
         """Shows filtered trace on trace_table"""
         self.main_window.show_filtered_trace()
 
-    def show_messagebox(self, title, msg):
+    def show_messagebox(self, title: str, msg: str):
         """Shows a messagebox
 
         Args:
