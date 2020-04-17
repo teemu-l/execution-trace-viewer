@@ -23,6 +23,8 @@ Execution Trace Viewer is an application for viewing, editing and analyzing exec
 ## Install & run
 
 ```shell
+git clone https://github.com/teemu-l/execution-trace-viewer
+
 pip install pyqt5 yapsy qdarkstyle capstone
 python tv.py
 ```
@@ -53,22 +55,22 @@ More plugins:
 
 Example filters:
 
-   Filter                 |    Description
---------------------------|--------------------------------------------------------------
-disasm=push&#x7c;pop      |  disasm contains word push or pop (push, pushfd, pop, etc)
-reg_eax=0x1337            |  show rows where eax is 0x1337
-reg_any=0x1337            |  any reg value is 0x1337
-mem_value=0x1337          |  read or write value 0x1337 to memory
-mem_read_value=0x1337     |  read value 0x1337 from memory
-mem_addr=0x4f20           |  read from or write to memory address 0x4f20
-mem_read_addr=0x40400     |  read from memory address 0x40400
-mem_write_addr=0x40400    |  write to memory address 0x40400
-opcodes=c704              |  filter by opcodes
-rows=20-50                |  show only rows 20-50
-regex=0x40?00             |  case-sensitive regex search for whole row (including comment)
-regex=READ                |  show insctructions which read memory
-iregex=junk&#x7c;decrypt  |  inverse regex, rows with 'junk' or 'decrypt' are filtered out
-comment=decrypt           |  filter by comment
+| Filter                   | Description                                                   |
+| ------------------------ | ------------------------------------------------------------- |
+| disasm=push&#x7c;pop     | disasm contains word push or pop (push, pushfd, pop, etc)     |
+| reg_eax=0x1337           | show rows where eax is 0x1337                                 |
+| reg_any=0x1337           | any reg value is 0x1337                                       |
+| mem_value=0x1337         | read or write value 0x1337 to memory                          |
+| mem_read_value=0x1337    | read value 0x1337 from memory                                 |
+| mem_addr=0x4f20          | read from or write to memory address 0x4f20                   |
+| mem_read_addr=0x40400    | read from memory address 0x40400                              |
+| mem_write_addr=0x40400   | write to memory address 0x40400                               |
+| opcodes=c704             | filter by opcodes                                             |
+| rows=20-50               | show only rows 20-50                                          |
+| regex=0x40?00            | case-sensitive regex search for whole row (including comment) |
+| regex=READ               | show insctructions which read memory                          |
+| iregex=junk&#x7c;decrypt | inverse regex, rows with 'junk' or 'decrypt' are filtered out |
+| comment=decrypt          | filter by comment                                             |
 
 It's possible to join multiple filters together:
 
