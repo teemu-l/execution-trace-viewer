@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
         """Inits UI"""
         uic.loadUi("gui/mainwindow.ui", self)
 
-        title = prefs.PACKAGE_NAME + " " + prefs.PACKAGE_VERSION
+        title = prefs.PACKAGE_NAME
         self.setWindowTitle(title)
 
         # accept file drops
@@ -90,17 +90,15 @@ class MainWindow(QMainWindow):
         self.trace_table.bookmarkCreated.connect(self.add_bookmark)
         self.trace_table.commentEdited.connect(self.set_comment)
         self.trace_table.printer = self.print
+        # self.trace_table.set_row_height(prefs.TRACE_ROW_HEIGHT)
 
         if prefs.USE_SYNTAX_HIGHLIGHT_IN_TRACE:
-            dark_text = False
-            if not prefs.USE_DARK_THEME:
-                dark_text = True
-            self.trace_table.init_syntax_highlight(dark_text)
+            self.trace_table.init_syntax_highlight(prefs.USE_DARK_THEME)
 
         # trace pagination
         if prefs.PAGINATION_ENABLED:
             self.trace_pagination = PaginationWidget()
-            self.trace_pagination.pageChanged.connect(self.trace_table.update)
+            self.trace_pagination.pageChanged.connect(self.trace_table.populate)
             self.horizontalLayout.addWidget(self.trace_pagination)
             self.trace_pagination.set_enabled(True)
             self.trace_pagination.rows_per_page = prefs.PAGINATION_ROWS_PER_PAGE
@@ -112,12 +110,27 @@ class MainWindow(QMainWindow):
         self.trace_current_pages = [1, 1]
         self.trace_scroll_values = [0, 0]
 
+        self.reg_table.create_context_menu()
         self.reg_table.setColumnCount(len(prefs.REG_LABELS))
         self.reg_table.setHorizontalHeaderLabels(prefs.REG_LABELS)
         self.reg_table.horizontalHeader().setStretchLastSection(True)
+        self.reg_table.regCheckBoxChanged.connect(self.on_reg_checkbox_change)
+        self.reg_table.printer = self.print
 
         if prefs.REG_FILTER_ENABLED:
             self.reg_table.filtered_regs = prefs.REG_FILTER
+
+        if not prefs.USE_DARK_THEME:
+            trace_style = (
+                "QTableView { selection-background-color: #eeeeee; selection-"
+                "color: #000000;} QTableWidget::item { padding: 0px; border: 0px;}"
+            )
+            reg_style = (
+                "QTableView { selection-background-color: #eee864; selection"
+                "-color: #000000;}"
+            )
+            self.trace_table.setStyleSheet(trace_style)
+            self.reg_table.setStyleSheet(reg_style)
 
         # Init memory table
         self.mem_table.setColumnCount(len(prefs.MEM_LABELS))
@@ -181,10 +194,10 @@ class MainWindow(QMainWindow):
         bookmarks_menu = self.menu_bar.addMenu("&Bookmarks")
         bookmarks_menu.addAction(clear_bookmarks_action)
 
-        # Init right click menu for trace table
-        self.init_trace_table_menu()
-        # Init plugins menu on menu bar
-        self.init_plugins_menu()
+        # Create right click menu for trace table
+        self.create_trace_table_menu()
+        # Create plugins menu on menu bar
+        self.create_plugins_menu()
 
         about_action = QAction("&About", self)
         about_action.triggered.connect(self.show_about_dialog)
@@ -199,7 +212,7 @@ class MainWindow(QMainWindow):
         self.select_trace_combo_box.addItem("Full trace")
         self.select_trace_combo_box.addItem("Filtered trace")
         self.select_trace_combo_box.currentIndexChanged.connect(
-            self.trace_combo_box_index_changed
+            self.on_trace_combo_box_index_changed
         )
 
         self.filter_widget = FilterWidget()
@@ -223,8 +236,8 @@ class MainWindow(QMainWindow):
         for plugin in self.manager.getAllPlugins():
             print_debug(f"Plugin found: {plugin.name}")
 
-    def init_plugins_menu(self):
-        """Inits plugins menu"""
+    def create_plugins_menu(self):
+        """Creates plugins menu"""
         self.plugins_topmenu.clear()
 
         reload_action = QAction("Reload plugins", self)
@@ -243,13 +256,13 @@ class MainWindow(QMainWindow):
             plugins_menu.addAction(action)
         self.plugins_topmenu.addMenu(plugins_menu)
 
-    def init_trace_table_menu(self):
-        """Initializes right click menu for trace table"""
+    def create_trace_table_menu(self):
+        """Creates right click menu for trace table"""
         self.trace_table_menu = QMenu(self)
 
-        copy_action = QAction("Print selected cells", self)
-        copy_action.triggered.connect(self.trace_table.print_selected_cells)
-        self.trace_table_menu.addAction(copy_action)
+        print_action = QAction("Print selected cells", self)
+        print_action.triggered.connect(self.trace_table.print_selected_cells)
+        self.trace_table_menu.addAction(print_action)
 
         add_bookmark_action = QAction("Add Bookmark", self)
         add_bookmark_action.triggered.connect(self.trace_table.create_bookmark)
@@ -268,8 +281,8 @@ class MainWindow(QMainWindow):
     def reload_plugins(self):
         """Reloads plugins"""
         self.init_plugins()
-        self.init_trace_table_menu()
-        self.init_plugins_menu()
+        self.create_trace_table_menu()
+        self.create_plugins_menu()
 
     def on_trace_table_row_changed(self):
         """Called when selected row changes"""
@@ -417,7 +430,7 @@ class MainWindow(QMainWindow):
             self.select_trace_combo_box.setCurrentIndex(1)
         else:
             self.trace_table.set_data(self.filtered_trace)
-            self.trace_table.update()
+            self.trace_table.populate()
 
     def set_comment(self, row_id, comment):
         """Sets comment to row on full trace"""
@@ -455,7 +468,8 @@ class MainWindow(QMainWindow):
             if prefs.PAGINATION_ENABLED:
                 self.trace_pagination.set_current_page(1, True)
             self.trace_table.set_data(self.trace_data.trace)
-            self.trace_table.update()
+            self.trace_table.populate()
+            self.trace_table.selectRow(0)
         self.update_bookmark_table()
         self.trace_table.update_column_widths()
 
@@ -468,7 +482,7 @@ class MainWindow(QMainWindow):
 
     def update_ui(self):
         """Updates tables and status bar"""
-        self.trace_table.update()
+        self.trace_table.populate()
         self.update_bookmark_table()
         self.update_status_bar()
 
@@ -522,6 +536,18 @@ class MainWindow(QMainWindow):
 
         self.status_bar.showMessage(msg)
 
+    def on_reg_checkbox_change(self, reg: str, is_checked: bool):
+        """Callback for register checkbox change"""
+
+        highlighter = self.trace_table.get_syntax_highlighter()
+        if highlighter:
+            highlighter.set_reg_highlight(reg, is_checked)
+            # force repaint, update() didn't work
+            self.trace_table.setVisible(False)
+            self.trace_table.setVisible(True)
+        else:
+            print_debug("Error, highlighter not found!")
+
     def get_selected_row_ids(self, table):
         """Returns IDs of all selected rows of TableWidget.
 
@@ -541,7 +567,7 @@ class MainWindow(QMainWindow):
             return []
         return sorted(row_ids_list)
 
-    def trace_combo_box_index_changed(self, index):
+    def on_trace_combo_box_index_changed(self, index):
         """Trace selection combo box index changed"""
         self.trace_table.set_data(self.get_visible_trace())
 
@@ -558,7 +584,7 @@ class MainWindow(QMainWindow):
         self.trace_scroll_values[other_index] = current_scroll
         next_value = self.trace_scroll_values[index]
 
-        self.trace_table.update()
+        self.trace_table.populate()
         QApplication.processEvents()  # this is needed to update the scrollbar
         self.trace_table.verticalScrollBar().setValue(next_value)
 
@@ -652,6 +678,8 @@ class MainWindow(QMainWindow):
             comment = QTableWidgetItem(bookmark.comment)
             comment.setWhatsThis("comment")
             table.setItem(i, 4, comment)
+
+            table.setRowHeight(i, 14)
 
         table.itemChanged.connect(self.on_bookmark_table_cell_edited)
         self.update_column_widths(table)

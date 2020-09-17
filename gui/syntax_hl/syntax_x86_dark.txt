@@ -1,0 +1,75 @@
+[
+    {
+        "startswith": [
+            "0x", "-0x"
+        ],
+        "color": "#f16a4e"
+    },
+    {
+        "words": [
+            "byte", "word", "dword", "qword", "ptr"
+        ],
+        "color": "#a25500"
+    },
+    {
+        "startswith": [
+            "pop", "push"
+        ],
+        "color": "#ff40ff"
+    },
+    {
+        "startswith": ["cmp"],
+        "words": [
+            "test", "bt"
+        ],
+        "color": "#32c435"
+    },
+    {
+        "startswith": [
+            "mov", "stos"
+        ],
+        "words": [
+            "lea", "xchg"
+        ],
+        "color": "#c4536a"
+    },
+    {
+        "startswith": ["j"],
+        "words": [
+            "ret", "call"
+        ],
+        "color": "yellow"
+    },
+    {
+        "words": [
+            "adc", "dec", "inc", "sub", "sbb"
+        ],
+        "has": [
+            "add", "div", "mul"
+        ],
+        "color": "cyan"
+    },
+    {
+        "has": ["xor"],
+        "words": [
+            "and",
+            "or",
+            "shl",
+            "shld",
+            "shr",
+            "shrd",
+            "sal",
+            "sar",
+            "rol",
+            "ror",
+            "rcl",
+            "rcr",
+            "bswap",
+            "neg",
+            "not",
+            "btc",
+            "bts"
+        ],
+        "color": "#ff2424"
+    }
+]

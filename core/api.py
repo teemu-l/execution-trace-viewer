@@ -159,7 +159,7 @@ class Api:
 
     def update_trace_table(self):
         """Updates trace_table"""
-        self.main_window.trace_table.update()
+        self.main_window.trace_table.populate()
 
     def update_bookmark_table(self):
         """Updates bookmark_table"""

@@ -3,7 +3,7 @@ from PyQt5.QtCore import pyqtSignal, Qt, QItemSelectionModel
 from PyQt5.QtGui import QCursor
 
 from core.bookmark import Bookmark
-from gui.syntax_hl.syntax_hl_trace import SyntaxHighlightDelegate
+from gui.syntax_hl.syntax_hl_delegate import SyntaxHighlightDelegate
 
 
 class TraceTableWidget(QTableWidget):
@@ -17,6 +17,7 @@ class TraceTableWidget(QTableWidget):
         self.trace = []
         self.pagination = None
         self.menu = None
+        self.row_height = 20
         self.init_ui()
 
     def init_ui(self):
@@ -24,11 +25,12 @@ class TraceTableWidget(QTableWidget):
         self.customContextMenuRequested.connect(self.custom_context_menu_requested)
         self.itemChanged.connect(self.item_changed)
 
-    def init_syntax_highlight(self, use_darker_text_color=False):
-        self.delegate = SyntaxHighlightDelegate(
-            self, use_darker_text_color=use_darker_text_color
-        )
+    def init_syntax_highlight(self, dark_theme: bool):
+        self.delegate = SyntaxHighlightDelegate(self, dark_theme=dark_theme)
         self.setItemDelegate(self.delegate)
+
+    def get_syntax_highlighter(self):
+        return self.delegate
 
     def create_bookmark(self):
         """Create a bookmark from selected rows"""
@@ -84,7 +86,7 @@ class TraceTableWidget(QTableWidget):
         self.scrollToItem(self.item(row, 3), QAbstractItemView.PositionAtCenter)
         self.select_row(row)
 
-    def item_changed(self, item):
+    def item_changed(self, item: QTableWidgetItem):
         """Called when user edits a cell"""
         cell_type = item.whatsThis()
         if cell_type == "comment":
@@ -97,16 +99,38 @@ class TraceTableWidget(QTableWidget):
         else:
             self.print_debug("Only comment editing allowed for now...")
 
-    def print_debug(self, msg):
+    def print(self, msg: str):
+        if self.printer:
+            self.printer(msg)
+        else:
+            print(msg)
+
+    def print_debug(self, msg: str):
         print(msg)
 
     def print_selected_cells(self):
         """Prints selected cells"""
-        if self.printer is None:
-            return
         items = self.selectedItems()
+
+        if len(items) < 1:
+            return
+
+        paddings = [6, 12, 14, 40, 0]
+        rows = {}
         for item in items:
-            self.printer(item.text())
+            row = item.row()
+            item_text = item.text().ljust(paddings[item.column()], " ")
+
+            if item.whatsThis() == "comment" and item.text():
+                item_text = f"; {item_text}"
+
+            if row not in rows:
+                rows[row] = [item_text]
+            else:
+                rows[row].append(item_text)
+
+        for row in rows.values():
+            self.print(" ".join(row).strip())
 
     def select_row(self, row: int):
         """Selects a row in a table"""
@@ -123,9 +147,11 @@ class TraceTableWidget(QTableWidget):
         self.trace = data
         if self.pagination is not None:
             self.update_pagination()
-        # self.update()
 
-    def update(self):
+    def set_row_height(self, height: int):
+        self.row_height = height
+
+    def populate(self):
         try:
             self.itemChanged.disconnect()
         except Exception:
@@ -148,23 +174,28 @@ class TraceTableWidget(QTableWidget):
             return
 
         for i in range(0, row_count):
-            row_id = str(trace[i]["id"])
-            address = trace[i].get("ip")
-            opcodes = trace[i]["opcodes"]
-            disasm = trace[i]["disasm"]
-            comment = str(trace[i]["comment"])
-
-            comment_item = QTableWidgetItem(comment)
-            comment_item.setWhatsThis("comment")
-            row_id_item = QTableWidgetItem(row_id)
+            row_id_item = QTableWidgetItem(str(trace[i]["id"]))
             row_id_item.setFlags(row_id_item.flags() & ~Qt.ItemIsEditable)
 
+            address_item = QTableWidgetItem(hex(trace[i].get("ip")))
+            address_item.setFlags(address_item.flags() & ~Qt.ItemIsEditable)
+
+            opcodes_item = QTableWidgetItem(trace[i]["opcodes"])
+            opcodes_item.setFlags(opcodes_item.flags() & ~Qt.ItemIsEditable)
+
+            disasm_item = QTableWidgetItem(trace[i]["disasm"])
+            disasm_item.setFlags(disasm_item.flags() & ~Qt.ItemIsEditable)
+
+            comment_item = QTableWidgetItem(str(trace[i]["comment"]))
+            comment_item.setWhatsThis("comment")
+
             self.setItem(i, 0, row_id_item)
-            if address is not None:
-                self.setItem(i, 1, QTableWidgetItem(hex(address)))
-            self.setItem(i, 2, QTableWidgetItem(opcodes))
-            self.setItem(i, 3, QTableWidgetItem(disasm))
+            self.setItem(i, 1, address_item)
+            self.setItem(i, 2, opcodes_item)
+            self.setItem(i, 3, disasm_item)
             self.setItem(i, 4, comment_item)
+
+            self.setRowHeight(i, self.row_height)
 
         self.itemChanged.connect(self.item_changed)
 
