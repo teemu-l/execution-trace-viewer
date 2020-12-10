@@ -48,6 +48,7 @@ class MainWindow(QMainWindow):
         self.api = Api(self)
         self.trace_data = TraceData()
         self.filtered_trace = []
+        self.filter_text = ""
         self.init_plugins()
         self.init_ui()
         if len(sys.argv) > 1:
@@ -302,6 +303,7 @@ class MainWindow(QMainWindow):
         self.update_status_bar()
 
     def on_filter_btn_clicked(self, filter_text: str):
+        self.filter_text = filter_text
         if self.trace_data is None:
             return
         try:
@@ -316,6 +318,7 @@ class MainWindow(QMainWindow):
         else:
             self.filtered_trace = filtered_trace
             self.show_filtered_trace()
+            self.update_status_bar()
 
     def on_find_btn_clicked(self, keyword: str, field_index: int, direction: int):
         """Find next or prev button clicked"""
@@ -528,7 +531,8 @@ class MainWindow(QMainWindow):
             selected_row_id = row_ids[0]
 
         msg += f" | {len(self.trace_data.trace)} rows in full trace."
-        msg += f" | {len(self.filtered_trace)} rows in filtered trace."
+        if len(self.filter_text) > 0:
+            msg += f" | {len(self.filtered_trace)} rows in filtered trace."
 
         bookmark = self.trace_data.get_bookmark_from_row(selected_row_id)
         if bookmark:
