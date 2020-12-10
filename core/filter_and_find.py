@@ -118,6 +118,8 @@ def filter_trace(trace, regs, filter_text):
         List of filtered trace records
     """
     data = trace
+    if len(filter_text) == 0:
+        return data
     filters = filter_text.split("/")
     if not filters or not data:
         raise ValueError("Empty trace or filter")
