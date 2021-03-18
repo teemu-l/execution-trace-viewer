@@ -4,8 +4,9 @@ from enum import Enum, auto
 
 class TraceField(Enum):
     """Enum for trace fields.
-        DISASM, REGS, MEM, MEM_ADDR, MEM_VALUE, COMMENT or ANY
+    DISASM, REGS, MEM, MEM_ADDR, MEM_VALUE, COMMENT or ANY
     """
+
     DISASM = auto()
     REGS = auto()
     MEM = auto()
@@ -15,7 +16,9 @@ class TraceField(Enum):
     ANY = auto()
 
 
-def find(trace, field, keyword, start_row=0, direction=1):
+def find(
+    trace: list, field: TraceField, keyword: str, start_row: int = 0, direction: int = 1
+):
     """Finds next/previous trace row with keyword
 
     Args:
@@ -77,7 +80,7 @@ def find(trace, field, keyword, start_row=0, direction=1):
 
     elif field == TraceField.COMMENT:
         for row in range(start_row, last_row, direction):
-            if keyword in trace[row]["comment"]:
+            if keyword in trace[row].get("comment", ""):
                 return row
 
     elif field == TraceField.ANY:
@@ -86,7 +89,7 @@ def find(trace, field, keyword, start_row=0, direction=1):
             keyword_int = int(keyword, 16)
 
         for row in range(start_row, last_row, direction):
-            if keyword in trace[row]["comment"]:
+            if keyword in trace[row].get("comment", ""):
                 return row
             for mem in trace[row]["mem"]:
                 mem_values = mem.values()
@@ -105,7 +108,7 @@ def find(trace, field, keyword, start_row=0, direction=1):
     return None
 
 
-def filter_trace(trace, regs, filter_text):
+def filter_trace(trace: list, regs: dict, filter_text: str):
     """Filters trace
 
     Args:
@@ -134,15 +137,16 @@ def filter_trace(trace, regs, filter_text):
             rows = value.split("-")
             start = int(rows[0])
             end = int(rows[1])
-            data = data[start:end+1]
+            data = data[start : end + 1]
         elif f_parts[0] == "disasm":
             disasm_list = f_parts[1].split("|")
-            data = list(filter(lambda x: any(k for k in disasm_list \
-                if k in x["disasm"]), data))
+            data = list(
+                filter(lambda x: any(k for k in disasm_list if k in x["disasm"]), data)
+            )
         elif f_parts[0] == "opcodes":
             data = list(filter(lambda x: value in x["opcodes"], data))
         elif f_parts[0] == "comment":
-            data = list(filter(lambda x: value in x["comment"], data))
+            data = list(filter(lambda x: value in x.get("comment", ""), data))
         elif "reg_" in f_parts[0]:
             reg = f_parts[0].split("_")[1]
             value = int(value, 16)
@@ -159,28 +163,62 @@ def filter_trace(trace, regs, filter_text):
             data = list(filter(lambda x: re.search(value, str(x)) is None, data))
         elif f_parts[0] == "mem_value":
             value = int(value, 16)
-            data = list(filter(lambda x: any(k for k in x["mem"] \
-                        if k["value"] == value), data))
+            data = list(
+                filter(lambda x: any(k for k in x["mem"] if k["value"] == value), data)
+            )
         elif f_parts[0] == "mem_read_value":
             value = int(value, 16)
-            data = list(filter(lambda x: any(k for k in x["mem"] \
-                        if k["value"] == value and k["access"] == "READ"), data))
+            data = list(
+                filter(
+                    lambda x: any(
+                        k
+                        for k in x["mem"]
+                        if k["value"] == value and k["access"] == "READ"
+                    ),
+                    data,
+                )
+            )
         elif f_parts[0] == "mem_write_value":
             value = int(value, 16)
-            data = list(filter(lambda x: any(k for k in x["mem"] \
-                        if k["value"] == value and k["access"] == "WRITE"), data))
+            data = list(
+                filter(
+                    lambda x: any(
+                        k
+                        for k in x["mem"]
+                        if k["value"] == value and k["access"] == "WRITE"
+                    ),
+                    data,
+                )
+            )
         elif f_parts[0] == "mem_addr":
             value = int(value, 16)
-            data = list(filter(lambda x: any(k for k in x["mem"] \
-                        if k["addr"] == value), data))
+            data = list(
+                filter(lambda x: any(k for k in x["mem"] if k["addr"] == value), data)
+            )
         elif f_parts[0] == "mem_read_addr":
             value = int(value, 16)
-            data = list(filter(lambda x: any(k for k in x["mem"] \
-                        if k["addr"] == value and k["access"] == "READ"), data))
+            data = list(
+                filter(
+                    lambda x: any(
+                        k
+                        for k in x["mem"]
+                        if k["addr"] == value and k["access"] == "READ"
+                    ),
+                    data,
+                )
+            )
         elif f_parts[0] == "mem_write_addr":
             value = int(value, 16)
-            data = list(filter(lambda x: any(k for k in x["mem"] \
-                        if k["addr"] == value and k["access"] == "WRITE"), data))
+            data = list(
+                filter(
+                    lambda x: any(
+                        k
+                        for k in x["mem"]
+                        if k["addr"] == value and k["access"] == "WRITE"
+                    ),
+                    data,
+                )
+            )
         else:
             raise ValueError(f"Unknown word: {f_parts[0]}")
     return data

@@ -15,14 +15,14 @@
         "startswith": [
             "pop", "push"
         ],
-        "color": "#ff3fa8"
+        "color": "#ff40ff"
     },
     {
         "startswith": ["cmp"],
         "words": [
             "test", "bt"
         ],
-        "color": "darkGreen"
+        "color": "#32c435"
     },
     {
         "startswith": [
@@ -34,11 +34,21 @@
         "color": "#c4536a"
     },
     {
+        "startswith": ["jmp"],
+        "color": "black",
+        "bgcolor": "yellow"
+    },
+    {
         "startswith": ["j"],
+        "color": "darkRed",
+        "bgcolor": "yellow"
+    },
+    {
         "words": [
-            "ret", "call"
+            "call", "ret"
         ],
-        "color": "#b7ab03"
+        "color": "#000000",
+        "bgcolor": "#00ccff"
     },
     {
         "words": [
@@ -47,7 +57,7 @@
         "has": [
             "add", "div", "mul"
         ],
-        "color": "darkCyan"
+        "color": "cyan"
     },
     {
         "has": ["xor"],
@@ -70,6 +80,6 @@
             "btc",
             "bts"
         ],
-        "color": "darkRed"
+        "color": "#ff2424"
     }
 ]

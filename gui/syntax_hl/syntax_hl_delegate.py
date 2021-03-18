@@ -20,37 +20,31 @@ from core import prefs
 
 
 class SyntaxHighlightDelegate(QStyledItemDelegate):
-    def __init__(self, parent=None, arch: str = "x86", dark_theme: bool = False):
+    def __init__(self, parent=None):
         super(SyntaxHighlightDelegate, self).__init__(parent)
+
         self.doc = QTextDocument(self)
-        self.highlighted_columns = [3]
 
-        self.syntax_colors = []
-        self.custom_hl = []
-        self.register_hl = {}
+        self.disasm_columns = []
+        self.value_columns = []
 
-        if dark_theme:
-            self.load_syntax_file("gui/syntax_hl/syntax_x86_dark.txt")
-            self.reg_hl_color = QColor("#000000")
-            self.reg_hl_bg_color = QColor("#ffffff")
-        else:
-            self.load_syntax_file("gui/syntax_hl/syntax_x86_light.txt")
-            self.reg_hl_color = QColor("#ffffff")
-            self.reg_hl_bg_color = QColor("#333333")
+        self.highlighted_regs = {}
+        self.reg_hl_color = prefs.REG_HL_COLOR
+        self.reg_hl_bg_colors = prefs.REG_HL_BG_COLORS
 
-    def set_reg_highlight(self, reg: str, enabled: bool):
+        self.ignored_chars = (" ", ",", "+", "[", "]")
 
-        regs_hl = prefs.HL_REGS_X86
-        words = regs_hl.get(reg, [reg])
+        self.disasm_rules = self.load_rules_file(prefs.DISASM_RULES_FILE)
+        self.value_rules = self.load_rules_file(prefs.VALUE_RULES_FILE)
 
-        if enabled:
-            self.register_hl[reg] = words
-        elif reg in self.register_hl:
-            del self.register_hl[reg]
-
-    def load_syntax_file(self, filename: str):
+    def load_rules_file(self, filename: str) -> list:
+        """Loads syntax highlighting rules from json file"""
         with open(filename) as f:
-            self.syntax_colors = json.load(f)
+            return json.load(f)
+
+    def reset(self):
+        """Resets highlighter"""
+        self.highlighted_regs = {}
 
     def paint(self, painter, option, index):
         painter.save()
@@ -60,9 +54,13 @@ class SyntaxHighlightDelegate(QStyledItemDelegate):
 
         self.doc.setPlainText(options.text)
 
-        if index.column() in self.highlighted_columns:
+        column = index.column()
+        if column in self.disasm_columns:
             options.font.setWeight(QFont.Bold)
-            self.highlight()
+            self.highlight(self.doc, self.disasm_rules)
+        elif column in self.value_columns:
+            options.font.setWeight(QFont.Bold)
+            self.highlight(self.doc, self.value_rules)
 
         self.doc.setDefaultFont(options.font)
 
@@ -81,8 +79,7 @@ class SyntaxHighlightDelegate(QStyledItemDelegate):
             )
         else:
             ctx.palette.setColor(
-                QPalette.Text,
-                option.palette.color(QPalette.Active, QPalette.Text),
+                QPalette.Text, option.palette.color(QPalette.Active, QPalette.Text),
             )
 
         textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
@@ -101,52 +98,78 @@ class SyntaxHighlightDelegate(QStyledItemDelegate):
 
         painter.restore()
 
-    def highlight(self):
+    def set_reg_highlight(self, reg: str, enabled: bool):
+        """Enables or disables register highlight"""
+        regs_hl = prefs.HL_REGS_X86
+        words = regs_hl.get(reg, [reg])
+
+        if enabled:
+            self.highlighted_regs[reg] = words
+        elif reg in self.highlighted_regs:
+            del self.highlighted_regs[reg]
+
+    def highlight(self, document: QTextDocument, rules: list):
+        """Highlights document"""
         char_format = QTextCharFormat()
-        cursor = QTextCursor(self.doc)
+        cursor = QTextCursor(document)
 
         while not cursor.isNull() and not cursor.atEnd():
             cursor.movePosition(QTextCursor.EndOfWord, QTextCursor.KeepAnchor)
 
-            color = self.get_register_hl_color(cursor.selectedText())
-            if color is not None:
-                char_format.setBackground(self.reg_hl_bg_color)
-            else:
-                color = self.get_color(cursor.selectedText())
+            text = cursor.selectedText()
+            color, bgcolor = self.get_register_hl_color(text, self.highlighted_regs)
 
-            if color is not None:
-                char_format.setForeground(color)
+            if not color:
+                color, bgcolor = self.get_color(text, rules)
+
+            if color:
+                char_format.setForeground(QColor(color))
+
+            if bgcolor:
+                char_format.setBackground(QColor(bgcolor))
+
+            if color or bgcolor:
                 cursor.mergeCharFormat(char_format)
+                char_format.clearBackground()
 
-            char_format.clearBackground()
-            self.move_to_next_word(self.doc, cursor)
+            self.move_to_next_word(document, cursor)
 
-    def move_to_next_word(self, doc, cursor):
+    def move_to_next_word(self, doc: QTextDocument, cursor: QTextCursor):
+        """Moves cursor to next word"""
         while not cursor.isNull() and not cursor.atEnd():
-            if doc.characterAt(cursor.position()) not in (" ", ",", "+", "[", "]"):
+            if doc.characterAt(cursor.position()) not in self.ignored_chars:
                 return
             cursor.movePosition(QTextCursor.NextCharacter)
 
-    def get_register_hl_color(self, word_to_check: str):
-        for words in self.register_hl.values():
+    def get_register_hl_color(self, word_to_check: str, regs_hl: dict) -> tuple:
+        """Gets color and bgcolor if given word is found in regs_hl"""
+        color_index = 0
+
+        for words in regs_hl.values():
             if word_to_check in words:
-                return QColor(self.reg_hl_color)
-        return None
+                if color_index < len(self.reg_hl_bg_colors):
+                    bg_color = self.reg_hl_bg_colors[color_index]
+                else:
+                    bg_color = self.reg_hl_bg_colors[-1]
+                return (self.reg_hl_color, bg_color)
+            color_index += 1
 
-    def get_color(self, word_to_check: str):
+        return ("", "")
 
-        for syntax in self.syntax_colors:
-            if "words" in syntax:
-                for word in syntax["words"]:
+    def get_color(self, word_to_check: str, rules: dict) -> tuple:
+        """Gets color and bgcolor if given word is found in rules"""
+        for rule in rules:
+            if "words" in rule:
+                for word in rule["words"]:
                     if word == word_to_check:
-                        return QColor(syntax["color"])
-            if "startswith" in syntax:
-                for sw in syntax["startswith"]:
+                        return (rule["color"], rule.get("bgcolor", ""))
+            if "startswith" in rule:
+                for sw in rule["startswith"]:
                     if word_to_check.startswith(sw):
-                        return QColor(syntax["color"])
-            if "has" in syntax:
-                for has in syntax["has"]:
+                        return (rule["color"], rule.get("bgcolor", ""))
+            if "has" in rule:
+                for has in rule["has"]:
                     if has in word_to_check:
-                        return QColor(syntax["color"])
+                        return (rule["color"], rule.get("bgcolor", ""))
 
-        return None
+        return ("", "")

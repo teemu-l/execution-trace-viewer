@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
 from PyQt5.QtCore import pyqtSignal, Qt, QItemSelectionModel
 from PyQt5.QtGui import QCursor
 
+from core import prefs
 from core.bookmark import Bookmark
 from gui.syntax_hl.syntax_hl_delegate import SyntaxHighlightDelegate
 
@@ -18,6 +19,7 @@ class TraceTableWidget(QTableWidget):
         self.pagination = None
         self.menu = None
         self.row_height = 20
+        self.delegate = None
         self.init_ui()
 
     def init_ui(self):
@@ -25,11 +27,15 @@ class TraceTableWidget(QTableWidget):
         self.customContextMenuRequested.connect(self.custom_context_menu_requested)
         self.itemChanged.connect(self.item_changed)
 
-    def init_syntax_highlight(self, dark_theme: bool):
-        self.delegate = SyntaxHighlightDelegate(self, dark_theme=dark_theme)
+    def init_syntax_highlight(self):
+        """Inits syntax higlighter delegate"""
+        self.delegate = SyntaxHighlightDelegate(self)
+        self.delegate.disasm_columns = prefs.TRACE_HL_DISASM_COLUMNS
+        self.delegate.value_columns = prefs.TRACE_HL_VALUE_COLUMNS
         self.setItemDelegate(self.delegate)
 
     def get_syntax_highlighter(self):
+        """Returns syntax higlighter delegate"""
         return self.delegate
 
     def create_bookmark(self):
@@ -41,7 +47,7 @@ class TraceTableWidget(QTableWidget):
 
         addr = self.item(selected_rows[0].row(), 1).text()
         disasm = self.item(selected_rows[0].row(), 3).text()
-        comment = self.item(selected_rows[0].row(), 4).text()
+        comment = self.item(selected_rows[0].row(), 5).text()
 
         selected_row_ids = self.get_selected_row_ids()
         first_row_id = selected_row_ids[0]
@@ -115,7 +121,7 @@ class TraceTableWidget(QTableWidget):
         if len(items) < 1:
             return
 
-        paddings = [6, 12, 14, 40, 0]
+        paddings = [6, 12, 16, 40, 40, 0]
         rows = {}
         for item in items:
             row = item.row()
@@ -144,14 +150,17 @@ class TraceTableWidget(QTableWidget):
         )
 
     def set_data(self, data: list):
+        """Sets table data"""
         self.trace = data
         if self.pagination is not None:
             self.update_pagination()
 
     def set_row_height(self, height: int):
+        """Sets table row height"""
         self.row_height = height
 
     def populate(self):
+        """Populates the table with trace data"""
         try:
             self.itemChanged.disconnect()
         except Exception:
@@ -186,14 +195,19 @@ class TraceTableWidget(QTableWidget):
             disasm_item = QTableWidgetItem(trace[i]["disasm"])
             disasm_item.setFlags(disasm_item.flags() & ~Qt.ItemIsEditable)
 
-            comment_item = QTableWidgetItem(str(trace[i]["comment"]))
+            regchanges_item = QTableWidgetItem(trace[i].get("regchanges", ""))
+            regchanges_item.setFlags(regchanges_item.flags() & ~Qt.ItemIsEditable)
+            regchanges_item.setWhatsThis("regchanges")
+
+            comment_item = QTableWidgetItem(trace[i].get("comment", ""))
             comment_item.setWhatsThis("comment")
 
             self.setItem(i, 0, row_id_item)
             self.setItem(i, 1, address_item)
             self.setItem(i, 2, opcodes_item)
             self.setItem(i, 3, disasm_item)
-            self.setItem(i, 4, comment_item)
+            self.setItem(i, 4, regchanges_item)
+            self.setItem(i, 5, comment_item)
 
             self.setRowHeight(i, self.row_height)
 
@@ -202,13 +216,15 @@ class TraceTableWidget(QTableWidget):
     def update_column_widths(self):
         """Updates column widths of a TableWidget to match the content"""
         self.setVisible(False)  # fix ui glitch with column widths
-        self.resizeColumnsToContents()
-        self.setColumnWidth(0, 64)  # make id column wider
+        self.resizeColumnToContents(3)
+        self.setColumnWidth(0, 60)  # make id column wider
+        self.setColumnWidth(4, 230)  # make reg column wider
         self.horizontalHeader().setStretchLastSection(True)
         self.setVisible(True)
 
     def update_pagination(self):
-        if self.trace is not None:
+        """Update pagination widget"""
+        if self.pagination is not None:
             trace_length = len(self.trace)
             page_count = int(trace_length / self.pagination.rows_per_page) + 1
             self.pagination.set_page_count(page_count)

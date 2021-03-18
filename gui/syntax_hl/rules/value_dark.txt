@@ -1,0 +1,3 @@
+[
+    {"startswith": ["0x", "-0x"], "color": "#ff6a4e"}
+]

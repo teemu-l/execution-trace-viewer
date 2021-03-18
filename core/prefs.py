@@ -6,21 +6,55 @@ PACKAGE_COPYRIGHTS = "(C) 2019 Teemu Laurila"
 
 DEBUG = True
 
+WINDOW_WIDTH = 1300
+WINDOW_HEIGHT = 800
+
 LIGHT_THEME = "Fusion"
 USE_DARK_THEME = False
 
+TRACE_FONT = "Courier"
+TRACE_FONT_SIZE = 8
+TRACE_SHOW_OLD_REG_VALUE = False
+TRACE_SHOW_GRID = True
+
 HIGHLIGHT_MODIFIED_REGS = True
+
+TRACE_HL_DISASM_COLUMNS = [3]
+TRACE_HL_VALUE_COLUMNS = [4, 5]
+BOOKMARK_HL_DISASM_COLUMNS = [3]
+BOOKMARK_HL_VALUE_COLUMNS = [2, 4]
+
 USE_SYNTAX_HIGHLIGHT_IN_TRACE = True
 USE_SYNTAX_HIGHLIGHT_IN_LOG = True
+
+REG_HL_COLOR = "white"
+REG_HL_BG_COLORS = [
+    "blue",
+    "red",
+    "green",
+    "magenta",
+    "#a328e0",
+    "#cc0a4a",
+    "#cc7800",
+    "#d68711",
+]
+DISASM_RULES_FILE = "gui/syntax_hl/rules/syntax_x86_light.txt"
+VALUE_RULES_FILE = "gui/syntax_hl/rules/value_light.txt"
+if USE_DARK_THEME:
+    REG_HL_COLOR = "black"
+    REG_HL_BG_COLORS = ["magenta", "green", "pink", "lightgreen", "#7bbef2", "#f96459"]
+    DISASM_RULES_FILE = "gui/syntax_hl/rules/syntax_x86_dark.txt"
+    VALUE_RULES_FILE = "gui/syntax_hl/rules/value_dark.txt"
+
 HL_REGS_X86 = {
-    "r8": ["r8d", "r8w", "r8b"],
-    "r9": ["r9d", "r9w", "r9b"],
-    "r10": ["r10d", "r10w", "r10b"],
-    "r11": ["r11d", "r11w", "r11b"],
-    "r12": ["r12d", "r12w", "r12b"],
-    "r13": ["r13d", "r13w", "r13b"],
-    "r14": ["r14d", "r14w", "r14b"],
-    "r15": ["r15d", "r15w", "r15b"],
+    "r8": ["r8", "r8d", "r8w", "r8b"],
+    "r9": ["r9", "r9d", "r9w", "r9b"],
+    "r10": ["r10", "r10d", "r10w", "r10b"],
+    "r11": ["r11", "r11d", "r11w", "r11b"],
+    "r12": ["r12", "r12d", "r12w", "r12b"],
+    "r13": ["r13", "r13d", "r13w", "r13b"],
+    "r14": ["r14", "r14d", "r14w", "r14b"],
+    "r15": ["r15", "r15d", "r15w", "r15b"],
 }
 HL_REGS_X86.update(dict.fromkeys(["rax", "eax"], ["rax", "eax", "ax", "ah", "al"]))
 HL_REGS_X86.update(dict.fromkeys(["rbx", "ebx"], ["rbx", "ebx", "bx", "bh", "bl"]))
@@ -63,7 +97,7 @@ FIND_FIELDS = [
 ]
 
 # columns for tables
-TRACE_LABELS = ["#", "address", "opcodes", "disasm", "comment"]
+TRACE_LABELS = ["#", "address", "opcodes", "disasm", "registers", "comment"]
 BOOKMARK_LABELS = ["start row", "end row", "addr", "disasm", "comment"]
 REG_LABELS = ["reg", "hex", "dec"]
 MEM_LABELS = ["access", "address", "value"]

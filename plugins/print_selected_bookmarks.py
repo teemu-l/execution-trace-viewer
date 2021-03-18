@@ -2,16 +2,19 @@
 from yapsy.IPlugin import IPlugin
 from core.api import Api
 
-class PluginPrintSelectedBookmarks(IPlugin):
 
+class PluginPrintSelectedBookmarks(IPlugin):
     def execute(self, api: Api):
 
-        api.print('')
+        api.print("")
 
         bookmarks = api.get_selected_bookmarks()
 
         for b in bookmarks:
-            rows = "{:<13}".format(f"{b.startrow} - {b.endrow}")
-            addr = "{:<12}".format(b.addr)
-            disasm = "{:<20}".format(b.disasm)
+            if b.startrow is not b.endrow:
+                rows = "{:<13}".format(f"{b.startrow} - {b.endrow}")
+            else:
+                rows = "{:<13}".format(f"{b.startrow}")
+            addr = "{:<16}".format(b.addr)
+            disasm = "{:<33}".format(b.disasm)
             api.print(f"{rows}  {addr} {disasm} ; {b.comment}")

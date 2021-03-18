@@ -1,25 +1,25 @@
 from yapsy.IPlugin import IPlugin
 from core.api import Api
 
-class PluginPrintRows(IPlugin):
 
+class PluginPrintRows(IPlugin):
     def execute(self, api: Api):
 
         trace_data = api.get_trace_data()
         trace = api.get_selected_trace()
 
         if not trace:
-            print('PluginPrintRows error: Nothing selected.')
+            print("PluginPrintRows error: Nothing selected.")
             return
 
-        api.print('')
+        api.print("")
 
-        row_id_digits = len(str(trace[-1]['id']))
+        row_id_digits = len(str(trace[-1]["id"]))
         for t in trace:
-            ip = hex(trace_data.get_instruction_pointer(t['id']))
+            ip = hex(trace_data.get_instruction_pointer(t["id"]))
             api.print(
-                '{:<{}} '.format(t['id'], row_id_digits) +
-                ' %s ' % ip +
-                ' {:<42}'.format(t['disasm']) +
-                '; %s' % t['comment']
+                "{:<{}} ".format(t["id"], row_id_digits)
+                + " %s " % ip
+                + " {:<42}".format(t["disasm"])
+                + "; %s" % t.get("comment", "")
             )

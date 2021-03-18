@@ -5,7 +5,7 @@ import traceback
 
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QCursor
+from PyQt5.QtGui import QCursor, QFont
 from PyQt5.QtWidgets import (
     QMainWindow,
     QAction,
@@ -28,6 +28,7 @@ from core.filter_and_find import TraceField
 from core.api import Api
 from core import prefs
 from gui.syntax_hl.syntax_hl_log import AsmHighlighter
+from gui.syntax_hl.syntax_hl_delegate import SyntaxHighlightDelegate
 from gui.widgets.pagination_widget import PaginationWidget
 from gui.widgets.find_widget import FindWidget
 from gui.widgets.filter_widget import FilterWidget
@@ -73,14 +74,15 @@ class MainWindow(QMainWindow):
         """Inits UI"""
         uic.loadUi("gui/mainwindow.ui", self)
 
-        title = prefs.PACKAGE_NAME
-        self.setWindowTitle(title)
+        self.setWindowTitle(prefs.PACKAGE_NAME)
 
         # accept file drops
         self.setAcceptDrops(True)
 
+        self.resize(prefs.WINDOW_WIDTH, prefs.WINDOW_HEIGHT)
+
         # make trace table wider than regs&mem
-        self.splitter1.setSizes([1400, 100])
+        self.splitter1.setSizes([1000, 100])
         self.splitter2.setSizes([600, 100])
 
         # Init trace table
@@ -91,10 +93,16 @@ class MainWindow(QMainWindow):
         self.trace_table.bookmarkCreated.connect(self.add_bookmark)
         self.trace_table.commentEdited.connect(self.set_comment)
         self.trace_table.printer = self.print
-        # self.trace_table.set_row_height(prefs.TRACE_ROW_HEIGHT)
+        self.trace_table.set_row_height(prefs.TRACE_ROW_HEIGHT)
+
+        trace_font = QFont(prefs.TRACE_FONT)
+        trace_font.setPointSize(prefs.TRACE_FONT_SIZE)
+        self.trace_table.setFont(trace_font)
+        self.bookmark_table.setFont(trace_font)
+        self.trace_table.setShowGrid(prefs.TRACE_SHOW_GRID)
 
         if prefs.USE_SYNTAX_HIGHLIGHT_IN_TRACE:
-            self.trace_table.init_syntax_highlight(prefs.USE_DARK_THEME)
+            self.trace_table.init_syntax_highlight()
 
         # trace pagination
         if prefs.PAGINATION_ENABLED:
@@ -123,14 +131,15 @@ class MainWindow(QMainWindow):
 
         if not prefs.USE_DARK_THEME:
             trace_style = (
-                "QTableView { selection-background-color: #eeeeee; selection-"
-                "color: #000000;} QTableWidget::item { padding: 0px; border: 0px;}"
+                "QTableView { selection-background-color: #dddddd; selection-"
+                "color: #000000; border: 0px;} QTableWidget::item { padding: 0px; border: 0px}"
             )
             reg_style = (
                 "QTableView { selection-background-color: #eee864; selection"
                 "-color: #000000;}"
             )
             self.trace_table.setStyleSheet(trace_style)
+            self.bookmark_table.setStyleSheet(trace_style)
             self.reg_table.setStyleSheet(reg_style)
 
         # Init memory table
@@ -145,6 +154,11 @@ class MainWindow(QMainWindow):
         self.bookmark_table.customContextMenuRequested.connect(
             self.bookmark_table_context_menu_event
         )
+
+        self.bookmark_table.delegate = SyntaxHighlightDelegate(self)
+        self.bookmark_table.delegate.disasm_columns = prefs.BOOKMARK_HL_DISASM_COLUMNS
+        self.bookmark_table.delegate.value_columns = prefs.BOOKMARK_HL_VALUE_COLUMNS
+        self.bookmark_table.setItemDelegate(self.bookmark_table.delegate)
 
         self.bookmark_menu = QMenu(self)
 
@@ -308,9 +322,7 @@ class MainWindow(QMainWindow):
             return
         try:
             filtered_trace = filter_trace(
-                self.trace_data.trace,  # get_visible_trace(),
-                self.trace_data.get_regs(),
-                filter_text,
+                self.trace_data.trace, self.trace_data.get_regs(), filter_text,
             )
         except Exception as exc:
             self.show_messagebox("Filter error", f"{exc}")
@@ -470,9 +482,12 @@ class MainWindow(QMainWindow):
         else:
             if prefs.PAGINATION_ENABLED:
                 self.trace_pagination.set_current_page(1, True)
+            self.trace_table.get_syntax_highlighter().reset()
             self.trace_table.set_data(self.trace_data.trace)
             self.trace_table.populate()
             self.trace_table.selectRow(0)
+            self.setWindowTitle(f"{filename.split('/')[-1]} - {prefs.PACKAGE_NAME}")
+
         self.update_bookmark_table()
         self.trace_table.update_column_widths()
 
@@ -522,8 +537,7 @@ class MainWindow(QMainWindow):
 
         row_count = table.rowCount()
         row_info = f"{row}/{row_count - 1}"
-        filename = self.trace_data.filename.split("/")[-1]
-        msg = f"File: {filename} | Row: {row_info} "
+        msg = f"Row: {row_info} "
 
         selected_row_id = 0
         row_ids = self.trace_table.get_selected_row_ids()

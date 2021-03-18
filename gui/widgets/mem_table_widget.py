@@ -2,7 +2,6 @@ from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
 
 
 class MemTableWidget(QTableWidget):
-
     def __init__(self, parent=None):
         super(MemTableWidget, self).__init__(parent)
         self.mem_data = []
@@ -10,9 +9,9 @@ class MemTableWidget(QTableWidget):
     def set_data(self, data):
         """Sets table data and updates it"""
         self.mem_data = data
-        self.update()
+        self.populate()
 
-    def update(self):
+    def populate(self):
         """Fills table with data"""
         if self.mem_data is None or not self.mem_data:
             self.setRowCount(0)

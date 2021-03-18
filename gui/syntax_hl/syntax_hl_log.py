@@ -9,12 +9,16 @@ from PyQt5.QtCore import QRegExp
 from PyQt5.QtGui import QColor, QTextCharFormat, QFont, QSyntaxHighlighter
 
 
-def format(color, style=""):
+def format(color, bgcolor="", style=""):
     """Return a QTextCharFormat with the given attributes."""
     _color = QColor()
     _color.setNamedColor(color)
     _format = QTextCharFormat()
     _format.setForeground(_color)
+
+    if bgcolor:
+        _format.setBackground(QColor(bgcolor))
+
     if "bold" in style:
         _format.setFontWeight(QFont.Bold)
     if "italic" in style:
@@ -24,17 +28,19 @@ def format(color, style=""):
 
 # Syntax styles
 STYLES = {
-    "instr_general": format("lightGreen"),
+    "instr_general": format("#8e3ca5"),
     "instr_cmp": format("green"),
-    "instr_branch": format("green"),
-    "instr_arith": format("darkOrange"),
-    "instr_vm": format("red", "bold"),
+    "instr_call": format("#000000", bgcolor="#00ffff"),
+    "instr_branch": format("black", bgcolor="yellow"),
+    "instr_cond_branch": format("red", bgcolor="yellow", style="italic"),
+    "instr_arith": format("darkCyan"),
+    "instr_vm": format("red", style="bold"),
     "keywords_vm": format("darkMagenta"),
-    "instr_stack": format("lightBlue"),
+    "instr_stack": format("#ff3fa8"),
     "instr_bitwise": format("red"),
     "operator": format("red"),
     "brace": format("darkMagenta"),
-    "comment": format("darkGreen", "italic"),
+    "comment": format("darkGreen", style="italic"),
     "numbers": format("brown"),
 }
 
@@ -44,25 +50,83 @@ class AsmHighlighter(QSyntaxHighlighter):
 
     instr_general = ["mov", "movzx", "movsx", "movsx", "lea"]
     instr_cmp = ["cmp", "test"]
-    instr_branch = ["jmp", "call"]
+    instr_call = ["call", "ret"]
+    instr_branch = ["jmp"]
+    instr_cond_branch = [
+        "jne",
+        "jnz",
+        "je",
+        "jz",
+        "jg",
+        "jnle",
+        "jle",
+        "jng",
+        "jge",
+        "jnl",
+        "jl",
+        "jnge",
+        "ja",
+        "jnbe",
+        "jbe",
+        "jna",
+        "jnb",
+        "jae",
+        "jnc",
+        "jb",
+        "jnae",
+        "jc",
+        "jns",
+        "js",
+    ]
     instr_arith = ["add", "sub", "dec", "inc", "mul"]
     instr_vm = ["nor", "load", "exit", "enter", "init"]
     instr_stack = ["push", "pushad", "pushfd", "pushal", "pop", "popfd"]
-    instr_bitwise = ["xor", "and", "or", "shl", "shr", "bswap",
-                     "rol", "ror", "neg", "not", "btc", "bts",
-                    ]
+    instr_bitwise = [
+        "xor",
+        "and",
+        "or",
+        "shl",
+        "shr",
+        "bswap",
+        "rol",
+        "ror",
+        "neg",
+        "not",
+        "btc",
+        "bts",
+    ]
 
     # Operators
     operators = [
         "=",
         # Comparison
-        "==", "!=", "<", "<=", ">", ">=",
+        "==",
+        "!=",
+        "<",
+        "<=",
+        ">",
+        ">=",
         # Arithmetic
-        "\+", "-", "\*", "/", "//", "\%", "\*\*",
+        "\+",
+        "-",
+        "\*",
+        "/",
+        "//",
+        "\%",
+        "\*\*",
         # In-place
-        "\+=", "-=", "\*=", "/=", "\%=",
+        "\+=",
+        "-=",
+        "\*=",
+        "/=",
+        "\%=",
         # Bitwise
-        "\^", "\|", "\&", "\~", ">>", "<<",
+        "\^",
+        "\|",
+        "\&",
+        "\~",
+        ">>",
+        "<<",
     ]
 
     # Braces
@@ -84,8 +148,16 @@ class AsmHighlighter(QSyntaxHighlighter):
         ]
 
         rules += [
+            (r"\b%s\b" % w, 0, STYLES["instr_call"]) for w in AsmHighlighter.instr_call
+        ]
+
+        rules += [
             (r"\b%s\b" % w, 0, STYLES["instr_branch"])
             for w in AsmHighlighter.instr_branch
+        ]
+        rules += [
+            (r"\b%s\b" % w, 0, STYLES["instr_cond_branch"])
+            for w in AsmHighlighter.instr_cond_branch
         ]
 
         rules += [
@@ -119,6 +191,8 @@ class AsmHighlighter(QSyntaxHighlighter):
             (r"\b[+-]?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\b", 0, STYLES["numbers"]),
             # From 'vm_' until a space or a comma
             (r"vm_[^ ,]*", 0, STYLES["keywords_vm"]),
+            # From 'j' until a space or a comma
+            # (r"j[^ ,]*", 0, STYLES["instr_cond_branch"]),
             # From '#' until a newline
             (r"#[^\n]*", 0, STYLES["comment"]),
             # From ';' until a newline

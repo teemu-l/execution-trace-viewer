@@ -15,14 +15,7 @@
         "startswith": [
             "pop", "push"
         ],
-        "color": "#ff40ff"
-    },
-    {
-        "startswith": ["cmp"],
-        "words": [
-            "test", "bt"
-        ],
-        "color": "#32c435"
+        "color": "#ff3fa8"
     },
     {
         "startswith": [
@@ -31,14 +24,31 @@
         "words": [
             "lea", "xchg"
         ],
-        "color": "#c4536a"
+        "color": "#8e3ca5"
+    },
+    {
+        "startswith": ["cmp"],
+        "words": [
+            "test", "bt"
+        ],
+        "color": "darkGreen"
+    },
+    {
+        "words": ["jmp"],
+        "color": "#000000",
+        "bgcolor": "yellow"
     },
     {
         "startswith": ["j"],
+        "color": "red",
+        "bgcolor": "yellow"
+    },
+    {
         "words": [
-            "ret", "call"
+            "call", "ret"
         ],
-        "color": "yellow"
+        "color": "#000000",
+        "bgcolor": "#00ffff"
     },
     {
         "words": [
@@ -47,7 +57,7 @@
         "has": [
             "add", "div", "mul"
         ],
-        "color": "cyan"
+        "color": "darkCyan"
     },
     {
         "has": ["xor"],
@@ -70,6 +80,12 @@
             "btc",
             "bts"
         ],
-        "color": "#ff2424"
+        "color": "darkRed"
+    },
+    {
+        "startswith": [
+            "1", "2", "3", "4", "5", "6", "7", "8", "9"
+        ],
+        "color": "#f16a4e"
     }
 ]

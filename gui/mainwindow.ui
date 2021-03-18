@@ -133,7 +133,7 @@
              </property>
              <property name="font">
               <font>
-               <family>Courier</family>
+               <family>Courier New</family>
                <pointsize>8</pointsize>
               </font>
              </property>
@@ -159,7 +159,7 @@
               <bool>true</bool>
              </property>
              <property name="gridStyle">
-              <enum>Qt::DashDotDotLine</enum>
+              <enum>Qt::DotLine</enum>
              </property>
              <property name="rowCount">
               <number>0</number>

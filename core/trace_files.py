@@ -133,10 +133,25 @@ def open_tv_trace(filename):
                 )
 
             reg_id = 0
-            for i, change_pos in enumerate(register_change_position):
-                reg_id += change_pos
+            regchanges = ""
+            for i, change in enumerate(register_change_position):
+                reg_id += change
                 if reg_id + i < len(reg_indexes):
                     reg_values[reg_id + i] = register_change_new_data[i]
+                if reg_id + i < len(reg_indexes) and row_id > 0:
+                    reg_name = regs[reg_id + i]
+                    if reg_name is not ip_reg:
+                        old_value = trace[-1]["regs"][reg_id + i]
+                        new_value = register_change_new_data[i]
+                        if old_value != new_value:
+                            if prefs.TRACE_SHOW_OLD_REG_VALUE:
+                                regchanges += (
+                                    f"{reg_name}: {hex(old_value)} -> {hex(new_value)} "
+                                )
+                            else:
+                                regchanges += f"{reg_name}: {hex(new_value)} "
+                            if 0x7F > new_value > 0x1F:
+                                regchanges += f"'{chr(new_value)}' "
 
             mems = []
             mem = {}
@@ -150,6 +165,9 @@ def open_tv_trace(filename):
                 mem["addr"] = memory_access_addresses[i]
                 mem["value"] = value
                 mems.append(mem.copy())
+
+            if regchanges:
+                trace[-1]["regchanges"] = regchanges
 
             trace_row = {}
             trace_row["id"] = row_id
@@ -442,16 +460,29 @@ def open_x64dbg_trace(filename):
                     )
 
             reg_id = 0
+            regchanges = ""
             for i, change in enumerate(register_change_position):
                 reg_id += change
                 if reg_id + i < len(reg_indexes):
                     reg_values[reg_id + i] = register_change_new_data[i]
+                if reg_id + i < len(reg_indexes) and row_id > 0:
+                    reg_name = regs[reg_id + i]
+                    if reg_name is not ip_reg:
+                        old_value = trace[-1]["regs"][reg_id + i]
+                        new_value = register_change_new_data[i]
+                        if old_value != new_value:
+                            if prefs.TRACE_SHOW_OLD_REG_VALUE:
+                                regchanges += (
+                                    f"{reg_name}: {hex(old_value)} -> {hex(new_value)} "
+                                )
+                            else:
+                                regchanges += f"{reg_name}: {hex(new_value)} "
+                            if 0x7F > new_value > 0x1F:
+                                regchanges += f"'{chr(new_value)}' "
 
             # disassemble
-            ip_value = reg_values[reg_indexes[ip_reg]]
-            for (_address, _size, mnemonic, op_str) in md.disasm_lite(
-                    opcodes, ip_value
-            ):
+            ip = reg_values[reg_indexes[ip_reg]]
+            for _address, _size, mnemonic, op_str in md.disasm_lite(opcodes, ip):
                 disasm = mnemonic
                 if op_str:
                     disasm += " " + op_str
@@ -487,14 +518,17 @@ def open_x64dbg_trace(filename):
                 mem["value"] = value
                 mems.append(mem.copy())
 
+            if regchanges:
+                trace[-1]["regchanges"] = regchanges
+
             trace_row = {}
             trace_row["id"] = row_id
-            trace_row["ip"] = ip_value
+            trace_row["ip"] = ip
             trace_row["disasm"] = disasm
             trace_row["regs"] = reg_values.copy()
             trace_row["opcodes"] = opcodes.hex()
             trace_row["mem"] = mems.copy()
-            trace_row["comment"] = ""
+            # trace_row["comment"] = ""
             trace.append(trace_row)
             row_id += 1
 
